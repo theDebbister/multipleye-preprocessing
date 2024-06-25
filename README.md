@@ -27,3 +27,10 @@
 - [ ] Quality checks
 - [ ] Plots
 - [ ] Documentation
+
+## Missing features in `pymovements`
+
+- [ ] Float timestamps for 2000 Hz data (https://github.com/aeye-lab/pymovements/issues/688)
+- [ ] Binocular ASC parsing (https://github.com/aeye-lab/pymovements/issues/686)
+- [ ] Reading measures (https://github.com/aeye-lab/pymovements/issues/701, https://github.com/aeye-lab/pymovements/issues/33)
+- [ ] ASC parsing with any combination of -res/-vel/-input options (https://www.sr-research.com/support/thread-7675.html)
