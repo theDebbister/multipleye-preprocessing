@@ -1,5 +1,7 @@
 # multipleye-preprocessing
 
+This is an inoffical, work-in-progress repo. Feel free to experiment and commit/push whatever you like. We will later put it to a proper clean repo. 
+
 ## Goals
 
 - Preprocess data on session level
