@@ -10,29 +10,69 @@ This is an inoffical, work-in-progress repo. Feel free to experiment and commit/
 - Make pipeline self-contained and reproducible
 - Support only EyeLink (for now)
 
-## Data flow
+## Preprocessing steps
 
 ![](preprocessing.drawio.png)
 
-## Roadmap
+Files in bold are to be included in the published dataset.
 
-- [ ] Basic pipeline skeleton
-  - [ ] Pipeline config
-  - [ ] CLI
-- [ ] Preprocessing steps
-  - [ ] edf2asc
-  - [ ] Raw sample extraction
-    - [ ] Coordinate normalization
-    - [ ] AOI mapping
-  - [ ] Fixation detection
-  - [ ] Reading measure calculation
-- [ ] Quality checks
-- [ ] Plots
-- [ ] Documentation
+### 1. Conversion to sample-level CSV files
+
+Input:
+- EDF/ASC files (for EyeLink)
+
+Output:
+- **Sample-level CSV file for each trial**
+  - File name: `{participant-id}_{stimulus-id}-samples.csv`
+  - Columns: `screen`, `time`, `pixel_x`, `pixel_y`, `pupil`
+- **Session-level metadata**
+  - File name: `session-metadata.json` (?)
+  - Content: calibrations, which eye for which trial, ...
+
+### 2. Fixation and saccade detection, AOI mapping
+
+Input:
+- `{participant-id}_{stimulus-id}-samples.csv`
+- **Character-level AOI definitions**
+  - File name: `aoi-char.csv` (?)
+  - Columns: `id`, `stimulus_id`, `screen`, `top_left_x`, `top_left_y`, `width`, `height`, `text`
+- **Token-level AOI definitions**
+  - File name: `aoi-token.csv` (?)
+  - Columns: `id`, `stimulus_id`, `screen`, `top_left_x`, `top_left_y`, `width`, `height`, `text`
+
+Output:
+- **Fixation-level CSV file for each trial**
+  - File name: `{participant-id}_{stimulus-id}_fixations.csv`
+  - Columns: `screen`, `onset`, `offset`, `pixel_x`, `pixel_y`, `char_aoi_id`, `token_aoi_id`
+- **Saccade-level CSV file for each trial**
+  - File name: `{participant-id}_{stimulus-id}_saccades.csv`
+  - Columns: `screen`, `onset`, `offset`, `start_pixel_x`, `start_pixel_y`, `char_aoi_id`, `token_aoi_id`
+
+### 3. Reading measures
+
+Input:
+- `{participant-id}_{stimulus-id}_fixations.csv`
+  
+Output:
+- **AOI-level CSV file containing reading measures**
+  - File name: `{participant-id}_{stimulus-id}_measures.csv`
+  - Columns: `screen`, `token_aoi_id`, `tft`, `fpr`, ...
+
+### 4. Quality checks
+
+- All trials and screens present?
+- Plausible reading times?
+- Ratio of fixations on stimulus
+- Blinks
+- Data loss ratio
+- Calibration quality
+- Main sequence plots
+- ...
 
 ## Missing features in `pymovements`
 
-- [ ] Float timestamps for 2000 Hz data (https://github.com/aeye-lab/pymovements/issues/688)
+- [x] Float timestamps for 2000 Hz data (https://github.com/aeye-lab/pymovements/issues/688)
 - [ ] Binocular ASC parsing (https://github.com/aeye-lab/pymovements/issues/686)
+- [ ] Reading EDF directly (https://github.com/aeye-lab/pymovements/issues/509)
 - [ ] Reading measures (https://github.com/aeye-lab/pymovements/issues/701, https://github.com/aeye-lab/pymovements/issues/33)
 - [ ] ASC parsing with any combination of -res/-vel/-input options (https://www.sr-research.com/support/thread-7675.html)
