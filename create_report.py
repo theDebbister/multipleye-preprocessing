@@ -16,7 +16,8 @@ def create_config(path):
     config['Database'] = {'db_name': 'example_db',
                           'db_host': 'localhost', 'db_port': '5432'}
 
-    config['Thresholds'] = {'validation_score_avg': 0.3, 'validation_score_max': 0.7}
+    config['validation'] = {'validation_score_avg': 0.3, 'validation_score_max': 0.7}
+    config['trial_duration'] =  {'start_timestamp': 897432.0, 'stop_timestamp': 897543.0,'duration_ms': 111.0, 'num_samples': 225}
 
     # Write the configuration to a file
     with open(path, 'w') as configfile:
