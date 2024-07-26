@@ -1,7 +1,8 @@
 import argparse
-from glob import glob
+import importlib
 import logging
 import math
+from glob import glob
 from pathlib import Path
 from typing import Any
 
@@ -14,7 +15,7 @@ from matplotlib.patches import Circle
 import config
 
 
-def load_data(asc_file: Path) -> tuple[pm.GazeDataFrame, dict[str, Any]]:
+def load_data(asc_file: Path, stimulus_dir: Path) -> tuple[pm.GazeDataFrame, dict[str, Any]]:
     gaze, metadata = pm.gaze.from_asc(
         asc_file,
         patterns=[
@@ -83,14 +84,19 @@ def load_data(asc_file: Path) -> tuple[pm.GazeDataFrame, dict[str, Any]]:
         pl.col("trial").replace(stimulus_ids).alias("stimulus_id")
     )
 
-    # TODO: Extract sampling rate, screen size etc. from metadata and stimulus folder
+    # Extract metadata from stimulus config and ASC file
+    stimulus_config_spec = importlib.util.spec_from_file_location("stimulus_config", stimulus_dir / "config" / "config_hr_ch_Zurich_1_2025.py")
+    stimulus_config = importlib.util.module_from_spec(stimulus_config_spec)
+    stimulus_config_spec.loader.exec_module(stimulus_config)
+    assert metadata["resolution"][0] == stimulus_config.IMAGE_WIDTH_PX, f"Image width mismatch: {metadata['resolution'][0]} != {stimulus_config.IMAGE_WIDTH_PX}"
+    assert metadata["resolution"][1] == stimulus_config.IMAGE_HEIGHT_PX, f"Image height mismatch: {metadata['resolution'][1]} != {stimulus_config.IMAGE_HEIGHT_PX}"
     gaze.experiment = pm.Experiment(
-        sampling_rate=2000,
-        screen_width_px=1275,
-        screen_height_px=916,
-        screen_width_cm=37,
-        screen_height_cm=28,
-        distance_cm=60,
+        sampling_rate=metadata["sampling_rate"],
+        screen_width_px=stimulus_config.IMAGE_WIDTH_PX,
+        screen_height_px=stimulus_config.IMAGE_HEIGHT_PX,
+        screen_width_cm=stimulus_config.IMAGE_SIZE_CM[0],
+        screen_height_cm=stimulus_config.IMAGE_SIZE_CM[1],
+        distance_cm=stimulus_config.DISTANCE_CM,
     )
     return gaze, metadata
 
@@ -209,7 +215,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO)
 
     logging.info("Loading data...")
-    gaze, metadata = load_data(args.asc_file)
+    gaze, metadata = load_data(args.asc_file, args.stimulus_dir)
     logging.info("Checking metadata...")
     check_metadata(metadata)
     logging.info("Checking gaze data...")
