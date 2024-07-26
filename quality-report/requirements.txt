@@ -1,3 +1,4 @@
 git+https://github.com/saeub/pymovements@quality-report
 polars==0.20.2
 matplotlib==3.9.1
+pillow==10.4.0
