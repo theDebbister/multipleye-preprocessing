@@ -100,7 +100,7 @@ def check_metadata(metadata: dict[str, Any]) -> None:
 
 
 def check_gaze(gaze: pm.GazeDataFrame) -> None:
-    pass  # TODO: All trials present, plausible reading times etc.
+    pass  # TODO: All trials present, all pages, questions and ratings present, plausible reading times etc.
 
 
 def preprocess(gaze: pm.GazeDataFrame) -> None:
@@ -140,9 +140,6 @@ def plot_gaze(gaze: pm.GazeDataFrame, stimulus_dir: Path, plots_dir: Path) -> No
     for trial, stimulus, screen in (
         gaze.frame.select(pl.col("trial"), pl.col("stimulus"), pl.col("screen")).unique().iter_rows()
     ):
-        # TODO: Also plot question and rating screens
-        if not screen.startswith("page_"):
-            continue
         screen_gaze = gaze.frame.filter(
             (pl.col("trial") == trial) & (pl.col("screen") == screen)
         ).select(
@@ -160,8 +157,15 @@ def plot_gaze(gaze: pm.GazeDataFrame, stimulus_dir: Path, plots_dir: Path) -> No
         )
 
         fig, ax = plt.subplots()
-        stimulus_image_path, = glob(str(stimulus_dir / f"stimuli_images_hr_ch_1/*_id{stimulus}_{screen}_hr.png"))
-        stimulus_image = PIL.Image.open(stimulus_image_path)
+        if screen.startswith("page_"):
+            stimulus_image_path, = glob(str(stimulus_dir / "stimuli_images_hr_ch_1" / f"*_id{stimulus}_{screen}_hr.png"))
+        elif screen.startswith("question_"):
+            question_number = int(screen.split("_")[1])
+            version = 1  # TODO: Use the correct version (question/answer order) for this subject
+            stimulus_image_path = sorted(glob(str(stimulus_dir / "question_images_hr_ch_1" / f"question_images_version_{version}" / f"*_id{stimulus}_question_*.png")))[question_number - 1]
+        else:
+            stimulus_image_path, = glob(str(stimulus_dir / f"participant_instructions_images_hr_ch_1" / f"{screen}_hr.png"))
+        stimulus_image = PIL.Image.open(stimulus_image_path[0])
         ax.imshow(stimulus_image)
         plt.plot(
             screen_gaze["pixel_x"],
