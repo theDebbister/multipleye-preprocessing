@@ -19,7 +19,11 @@ All input and output files (except for the original EDF/ASC files) are to be inc
 ### 1. Conversion to sample-level CSV files
 
 **Input:**
-- EDF/ASC files (for EyeLink)
+- EDF/ASC files (for EyeLink)  
+  Use the following command to generate the ASC file:  
+  ```bash
+  $ ./edf2asc in.edf -input -ftime -p out.asc
+  ```
 
 **Output:**
 - Sample-level CSV file for each trial
