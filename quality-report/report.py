@@ -16,7 +16,9 @@ from matplotlib.patches import Circle
 import config
 
 
-def load_data(asc_file: Path, stimulus_dir: Path) -> tuple[pm.GazeDataFrame, dict[str, Any]]:
+def load_data(
+    asc_file: Path, stimulus_dir: Path
+) -> tuple[pm.GazeDataFrame, dict[str, Any]]:
     gaze, metadata = pm.gaze.from_asc(
         asc_file,
         patterns=[
@@ -86,7 +88,9 @@ def load_data(asc_file: Path, stimulus_dir: Path) -> tuple[pm.GazeDataFrame, dic
     )
 
     # Extract metadata from stimulus config and ASC file
-    stimulus_config_spec = importlib.util.spec_from_file_location("stimulus_config", stimulus_dir / "config" / "config_hr_ch_Zurich_1_2025.py")
+    stimulus_config_spec = importlib.util.spec_from_file_location(
+        "stimulus_config", stimulus_dir / "config" / "config_hr_ch_Zurich_1_2025.py"
+    )
     stimulus_config = importlib.util.module_from_spec(stimulus_config_spec)
     stimulus_config_spec.loader.exec_module(stimulus_config)
     # TODO: Uncomment assertions when experiment implementation is fixed (https://www.sr-research.com/support/thread-9129.html)
@@ -106,20 +110,35 @@ def load_data(asc_file: Path, stimulus_dir: Path) -> tuple[pm.GazeDataFrame, dic
 def check_metadata(metadata: dict[str, Any], report_file: TextIO) -> None:
     num_calibrations = len(metadata["calibrations"])
     report_file.write(f"{num_calibrations} calibrations\n")
-    validation_scores_avg = [float(validation["validation_score_avg"]) for validation in metadata["validations"]]
-    report_file.write(f"AVG validation score: {sum(validation_scores_avg) / len(validation_scores_avg):.2f}")
-    validation_scores_max = [float(validation["validation_score_max"]) for validation in metadata["validations"]]
-    report_file.write(f"MAX validation score: {max(validation_scores_max):.2f}")
-    validation_errors = Counter([validation["error"] for validation in metadata["validations"]])
-    validation_errors_str = ", ".join(f"{count} x {error.removesuffix(' ERROR')}" for error, count in validation_errors.most_common())
-    report_file.write(f"Validation errors: {validation_errors_str}")
+    validation_scores_avg = [
+        float(validation["validation_score_avg"])
+        for validation in metadata["validations"]
+    ]
+    report_file.write(
+        f"AVG validation score: {sum(validation_scores_avg) / len(validation_scores_avg):.2f}\n"
+    )
+    validation_scores_max = [
+        float(validation["validation_score_max"])
+        for validation in metadata["validations"]
+    ]
+    report_file.write(f"MAX validation score: {max(validation_scores_max):.2f}\n")
+    validation_errors = Counter(
+        [validation["error"] for validation in metadata["validations"]]
+    )
+    validation_errors_str = ", ".join(
+        f"{count} x {error.removesuffix(' ERROR')}"
+        for error, count in validation_errors.most_common()
+    )
+    report_file.write(f"Validation errors: {validation_errors_str}\n")
 
     data_loss_ratio = metadata["data_loss_ratio"]
-    report_file.write(f"Data loss ratio: {data_loss_ratio * 100:.2f}")
+    report_file.write(f"Data loss ratio: {data_loss_ratio * 100:.2f}\n")
     data_loss_ratio_blinks = metadata["data_loss_ratio_blinks"]
-    report_file.write(f"Data loss ratio due to blinks: {data_loss_ratio_blinks * 100:.2f}")
+    report_file.write(
+        f"Data loss ratio due to blinks: {data_loss_ratio_blinks * 100:.2f}\n"
+    )
     total_recording_duration_ms = metadata["total_recording_duration_ms"]
-    report_file.write(f"Total recording duration: {total_recording_duration_ms} ms")
+    report_file.write(f"Total recording duration: {total_recording_duration_ms} ms\n")
 
 
 def check_gaze(gaze: pm.GazeDataFrame, report_file: TextIO) -> None:
@@ -128,7 +147,9 @@ def check_gaze(gaze: pm.GazeDataFrame, report_file: TextIO) -> None:
 
 def preprocess(gaze: pm.GazeDataFrame) -> None:
     # Savitzky-Golay filter as in https://doi.org/10.3758/BRM.42.1.188
-    window_length = round(gaze.experiment.sampling_rate / 1000 * config.SG_WINDOW_LENGTH)
+    window_length = round(
+        gaze.experiment.sampling_rate / 1000 * config.SG_WINDOW_LENGTH
+    )
     if window_length % 2 == 0:  # Must be odd
         window_length += 1
     gaze.pix2deg()
@@ -152,13 +173,15 @@ def preprocess(gaze: pm.GazeDataFrame) -> None:
     # TODO: AOI mapping
 
 
-def check_events(events: pm.EventDataFrame) -> None:
+def check_events(events: pm.EventDataFrame, report_file: TextIO) -> None:
     pass  # TODO: Fixations on/off stimulus etc.
 
 
 def plot_gaze(gaze: pm.GazeDataFrame, stimulus_dir: Path, plots_dir: Path) -> None:
     for trial, stimulus, screen in (
-        gaze.frame.select(pl.col("trial"), pl.col("stimulus"), pl.col("screen")).unique().iter_rows()
+        gaze.frame.select(pl.col("trial"), pl.col("stimulus"), pl.col("screen"))
+        .unique()
+        .iter_rows()
     ):
         screen_gaze = gaze.frame.filter(
             (pl.col("trial") == trial) & (pl.col("screen") == screen)
@@ -178,14 +201,35 @@ def plot_gaze(gaze: pm.GazeDataFrame, stimulus_dir: Path, plots_dir: Path) -> No
 
         fig, ax = plt.subplots()
         if screen.startswith("page_"):
-            stimulus_image_path, = glob(str(stimulus_dir / "stimuli_images_hr_ch_1" / f"*_id{stimulus}_{screen}_hr.png"))
+            (stimulus_image_path,) = glob(
+                str(
+                    stimulus_dir
+                    / "stimuli_images_hr_ch_1"
+                    / f"*_id{stimulus}_{screen}_hr.png"
+                )
+            )
         elif screen.startswith("question_"):
             question_number = int(screen.split("_")[1])
             version = 1  # TODO: Use the correct version (question/answer order) for this subject
-            stimulus_image_path = sorted(glob(str(stimulus_dir / "question_images_hr_ch_1" / f"question_images_version_{version}" / f"*_id{stimulus}_question_*.png")))[question_number - 1]
+            stimulus_image_path = sorted(
+                glob(
+                    str(
+                        stimulus_dir
+                        / "question_images_hr_ch_1"
+                        / f"question_images_version_{version}"
+                        / f"*_id{stimulus}_question_*.png"
+                    )
+                )
+            )[question_number - 1]
         else:
-            stimulus_image_path, = glob(str(stimulus_dir / f"participant_instructions_images_hr_ch_1" / f"{screen}_hr.png"))
-        stimulus_image = PIL.Image.open(stimulus_image_path[0])
+            (stimulus_image_path,) = glob(
+                str(
+                    stimulus_dir
+                    / f"participant_instructions_images_hr_ch_1"
+                    / f"{screen}_hr.png"
+                )
+            )
+        stimulus_image = PIL.Image.open(stimulus_image_path)
         ax.imshow(stimulus_image)
         plt.plot(
             screen_gaze["pixel_x"],
@@ -207,10 +251,13 @@ def plot_gaze(gaze: pm.GazeDataFrame, stimulus_dir: Path, plots_dir: Path) -> No
         ax.set_xlim((0, gaze.experiment.screen.width_px))
         ax.set_ylim((gaze.experiment.screen.height_px, 0))
         fig.savefig(plots_dir / f"stimulus_{stimulus}_{screen}.png")
+        plt.close(fig)
 
 
 def plot_main_sequence(events: pm.EventDataFrame, plots_dir: Path) -> None:
-    pm.plotting.main_sequence_plot(events, show=False, savepath=plots_dir / "main_sequence.png")
+    pm.plotting.main_sequence_plot(
+        events, show=False, savepath=plots_dir / "main_sequence.png"
+    )
 
 
 def main() -> None:
@@ -221,7 +268,11 @@ def main() -> None:
     parser.add_argument(
         "stimulus_dir", type=Path, help="Path to the stimulus directory"
     )
-    parser.add_argument("--report-to", type=Path, help="Path to save the report")
+    parser.add_argument(
+        "--report-to",
+        type=Path,
+        help="Path to save the report",
+    )
     parser.add_argument("--plots-dir", type=Path, help="Path to save the plots")
     args = parser.parse_args()
     if args.report_to is None:
@@ -229,19 +280,20 @@ def main() -> None:
     if args.plots_dir is None:
         args.plots_dir = Path(args.asc_file.stem + "_plots")
         args.plots_dir.mkdir(exist_ok=True)
+    report_file = open(args.report_to, "w", encoding="utf-8")
 
     logging.basicConfig(level=logging.INFO)
 
     logging.info("Loading data...")
     gaze, metadata = load_data(args.asc_file, args.stimulus_dir)
     logging.info("Checking metadata...")
-    check_metadata(metadata)
+    check_metadata(metadata, report_file)
     logging.info("Checking gaze data...")
-    check_gaze(gaze)
+    check_gaze(gaze, report_file)
     logging.info("Preprocessing...")
     preprocess(gaze)
     logging.info("Checking event data...")
-    check_events(gaze.events)
+    check_events(gaze.events, report_file)
     logging.info("Generating gaze plots...")
     plot_gaze(gaze, args.stimulus_dir, args.plots_dir)
     logging.info("Generating main sequence plots...")
