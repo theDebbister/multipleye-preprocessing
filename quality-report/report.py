@@ -1,10 +1,11 @@
 import argparse
+from collections import Counter
 import importlib
 import logging
 import math
 from glob import glob
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 
 import matplotlib.pyplot as plt
 import PIL
@@ -88,8 +89,9 @@ def load_data(asc_file: Path, stimulus_dir: Path) -> tuple[pm.GazeDataFrame, dic
     stimulus_config_spec = importlib.util.spec_from_file_location("stimulus_config", stimulus_dir / "config" / "config_hr_ch_Zurich_1_2025.py")
     stimulus_config = importlib.util.module_from_spec(stimulus_config_spec)
     stimulus_config_spec.loader.exec_module(stimulus_config)
-    assert metadata["resolution"][0] == stimulus_config.IMAGE_WIDTH_PX, f"Image width mismatch: {metadata['resolution'][0]} != {stimulus_config.IMAGE_WIDTH_PX}"
-    assert metadata["resolution"][1] == stimulus_config.IMAGE_HEIGHT_PX, f"Image height mismatch: {metadata['resolution'][1]} != {stimulus_config.IMAGE_HEIGHT_PX}"
+    # TODO: Uncomment assertions when experiment implementation is fixed (https://www.sr-research.com/support/thread-9129.html)
+    # assert metadata["resolution"][0] == stimulus_config.IMAGE_WIDTH_PX, f"Image width mismatch: {metadata['resolution'][0]} != {stimulus_config.IMAGE_WIDTH_PX}"
+    # assert metadata["resolution"][1] == stimulus_config.IMAGE_HEIGHT_PX, f"Image height mismatch: {metadata['resolution'][1]} != {stimulus_config.IMAGE_HEIGHT_PX}"
     gaze.experiment = pm.Experiment(
         sampling_rate=metadata["sampling_rate"],
         screen_width_px=stimulus_config.IMAGE_WIDTH_PX,
@@ -101,21 +103,36 @@ def load_data(asc_file: Path, stimulus_dir: Path) -> tuple[pm.GazeDataFrame, dic
     return gaze, metadata
 
 
-def check_metadata(metadata: dict[str, Any]) -> None:
-    pass  # TODO: Calibration/validation quality, data loss etc.
+def check_metadata(metadata: dict[str, Any], report_file: TextIO) -> None:
+    num_calibrations = len(metadata["calibrations"])
+    report_file.write(f"{num_calibrations} calibrations\n")
+    validation_scores_avg = [float(validation["validation_score_avg"]) for validation in metadata["validations"]]
+    report_file.write(f"AVG validation score: {sum(validation_scores_avg) / len(validation_scores_avg):.2f}")
+    validation_scores_max = [float(validation["validation_score_max"]) for validation in metadata["validations"]]
+    report_file.write(f"MAX validation score: {max(validation_scores_max):.2f}")
+    validation_errors = Counter([validation["error"] for validation in metadata["validations"]])
+    validation_errors_str = ", ".join(f"{count} x {error.removesuffix(' ERROR')}" for error, count in validation_errors.most_common())
+    report_file.write(f"Validation errors: {validation_errors_str}")
+
+    data_loss_ratio = metadata["data_loss_ratio"]
+    report_file.write(f"Data loss ratio: {data_loss_ratio * 100:.2f}")
+    data_loss_ratio_blinks = metadata["data_loss_ratio_blinks"]
+    report_file.write(f"Data loss ratio due to blinks: {data_loss_ratio_blinks * 100:.2f}")
+    total_recording_duration_ms = metadata["total_recording_duration_ms"]
+    report_file.write(f"Total recording duration: {total_recording_duration_ms} ms")
 
 
-def check_gaze(gaze: pm.GazeDataFrame) -> None:
+def check_gaze(gaze: pm.GazeDataFrame, report_file: TextIO) -> None:
     pass  # TODO: All trials present, all pages, questions and ratings present, plausible reading times etc.
 
 
 def preprocess(gaze: pm.GazeDataFrame) -> None:
     # Savitzky-Golay filter as in https://doi.org/10.3758/BRM.42.1.188
-    window_length = round(gaze.experiment.sampling_rate / 1000 * 50)  # 50 ms
+    window_length = round(gaze.experiment.sampling_rate / 1000 * config.SG_WINDOW_LENGTH)
     if window_length % 2 == 0:  # Must be odd
         window_length += 1
     gaze.pix2deg()
-    gaze.pos2vel("savitzky_golay", window_length=window_length, degree=2)
+    gaze.pos2vel("savitzky_golay", window_length=window_length, degree=config.SG_DEGREE)
     gaze.detect("ivt")
     gaze.detect("microsaccades")
     for property, kwargs, event_name in [
@@ -137,10 +154,6 @@ def preprocess(gaze: pm.GazeDataFrame) -> None:
 
 def check_events(events: pm.EventDataFrame) -> None:
     pass  # TODO: Fixations on/off stimulus etc.
-
-
-def plot_main_sequence(events: pm.EventDataFrame, plots_dir: Path) -> None:
-    pass  # TODO
 
 
 def plot_gaze(gaze: pm.GazeDataFrame, stimulus_dir: Path, plots_dir: Path) -> None:
