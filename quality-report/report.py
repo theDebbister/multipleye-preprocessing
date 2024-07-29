@@ -120,6 +120,7 @@ def preprocess(gaze: pm.GazeDataFrame) -> None:
     gaze.detect("microsaccades")
     for property, kwargs, event_name in [
         ("location", dict(position_column="pixel"), "fixation"),
+        ("amplitude", dict(), "saccade"),
         ("peak_velocity", dict(), "saccade"),
     ]:
         processor = pm.EventGazeProcessor((property, kwargs))
@@ -193,6 +194,10 @@ def plot_gaze(gaze: pm.GazeDataFrame, stimulus_dir: Path, plots_dir: Path) -> No
         ax.set_xlim((0, gaze.experiment.screen.width_px))
         ax.set_ylim((gaze.experiment.screen.height_px, 0))
         fig.savefig(plots_dir / f"stimulus_{stimulus}_{screen}.png")
+
+
+def plot_main_sequence(events: pm.EventDataFrame, plots_dir: Path) -> None:
+    pm.plotting.main_sequence_plot(events, show=False, savepath=plots_dir / "main_sequence.png")
 
 
 def main() -> None:
