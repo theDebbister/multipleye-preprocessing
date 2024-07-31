@@ -1,11 +1,11 @@
 import argparse
-from collections import Counter
 import importlib
 import logging
 import math
+from functools import partial
 from glob import glob
 from pathlib import Path
-from typing import Any, TextIO
+from typing import Any, Callable, TextIO
 
 import matplotlib.pyplot as plt
 import PIL
@@ -107,41 +107,61 @@ def load_data(
     return gaze, metadata
 
 
-def check_metadata(metadata: dict[str, Any], report_file: TextIO) -> None:
+ReportFunction = Callable[[str, Any, list | tuple], None]
+
+
+def check_metadata(metadata: dict[str, Any], report: ReportFunction) -> None:
     num_calibrations = len(metadata["calibrations"])
-    report_file.write(f"{num_calibrations} calibrations\n")
+    report(
+        "Number of calibrations", num_calibrations, config.ACCEPTABLE_NUM_CALIBRATIONS
+    )
     validation_scores_avg = [
         float(validation["validation_score_avg"])
         for validation in metadata["validations"]
     ]
-    report_file.write(
-        f"AVG validation score: {sum(validation_scores_avg) / len(validation_scores_avg):.2f}\n"
+    report(
+        "AVG validation score",
+        sum(validation_scores_avg) / len(validation_scores_avg),
+        config.ACCEPTABLE_AVG_VALIDATION_SCORES,
     )
     validation_scores_max = [
         float(validation["validation_score_max"])
         for validation in metadata["validations"]
     ]
-    report_file.write(f"MAX validation score: {max(validation_scores_max):.2f}\n")
-    validation_errors = Counter(
-        [validation["error"] for validation in metadata["validations"]]
+    report(
+        "MAX validation score",
+        max(validation_scores_max),
+        config.ACCEPTABLE_MAX_VALIDATION_SCORES,
     )
-    validation_errors_str = ", ".join(
-        f"{count} x {error.removesuffix(' ERROR')}"
-        for error, count in validation_errors.most_common()
-    )
-    report_file.write(f"Validation errors: {validation_errors_str}\n")
+    validation_errors = [
+        validation["error"].removesuffix(" ERROR")
+        for validation in metadata["validations"]
+    ]
+    report("Validation errors", validation_errors, config.ACCEPTABLE_VALIDATION_ERRORS)
 
     data_loss_ratio = metadata["data_loss_ratio"]
-    report_file.write(f"Data loss ratio: {data_loss_ratio * 100:.2f}\n")
+    report(
+        "Data loss ratio",
+        data_loss_ratio,
+        config.ACCEPTABLE_DATA_LOSS_RATIOS,
+        percentage=True,
+    )
     data_loss_ratio_blinks = metadata["data_loss_ratio_blinks"]
-    report_file.write(
-        f"Data loss ratio due to blinks: {data_loss_ratio_blinks * 100:.2f}\n"
+    report(
+        "Data loss ratio due to blinks",
+        data_loss_ratio_blinks,
+        config.ACCEPTABLE_DATA_LOSS_RATIOS,
+        percentage=True,
     )
     total_recording_duration_ms = metadata["total_recording_duration_ms"]
-    report_file.write(f"Total recording duration: {total_recording_duration_ms} ms\n")
+    report(
+        "Total recording duration",
+        total_recording_duration_ms,
+        config.ACCEPTABLE_RECORDING_DURATIONS,
+    )
 
 
-def check_gaze(gaze: pm.GazeDataFrame, report_file: TextIO) -> None:
+def check_gaze(gaze: pm.GazeDataFrame, report: ReportFunction) -> None:
     pass  # TODO: All trials present, all pages, questions and ratings present, plausible reading times etc.
 
 
@@ -173,7 +193,7 @@ def preprocess(gaze: pm.GazeDataFrame) -> None:
     # TODO: AOI mapping
 
 
-def check_events(events: pm.EventDataFrame, report_file: TextIO) -> None:
+def check_events(events: pm.EventDataFrame, report: ReportFunction) -> None:
     pass  # TODO: Fixations on/off stimulus etc.
 
 
@@ -260,6 +280,32 @@ def plot_main_sequence(events: pm.EventDataFrame, plots_dir: Path) -> None:
     )
 
 
+def report_to_file(
+    name: str,
+    values: Any,
+    acceptable_values: list | tuple,
+    *,
+    report_file: TextIO,
+    percentage: bool = False,
+) -> None:
+    if not isinstance(values, (list, tuple)):
+        values = [values]
+    if isinstance(acceptable_values, list):  # List of acceptable values
+        if all(value in acceptable_values for value in values):
+            result = "✅"
+        else:
+            result = "❌"
+    elif isinstance(acceptable_values, tuple):  # Range of acceptable values
+        lower, upper = acceptable_values
+        if all((lower <= value) and (upper >= value) for value in values):
+            result = "✅"
+        else:
+            result = "❌"
+    if percentage:
+        values = [f"{value:.2%}" for value in values]
+    report_file.write(f"{result} {name}: {', '.join(map(str, values))}\n")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Generate a quality report for a MultiplEYE session"
@@ -279,21 +325,23 @@ def main() -> None:
         args.report_to = Path(args.asc_file.stem + "_report.txt")
     if args.plots_dir is None:
         args.plots_dir = Path(args.asc_file.stem + "_plots")
-        args.plots_dir.mkdir(exist_ok=True)
+
     report_file = open(args.report_to, "w", encoding="utf-8")
+    args.plots_dir.mkdir(exist_ok=True)
+    report = partial(report_to_file, report_file=report_file)
 
     logging.basicConfig(level=logging.INFO)
 
     logging.info("Loading data...")
     gaze, metadata = load_data(args.asc_file, args.stimulus_dir)
     logging.info("Checking metadata...")
-    check_metadata(metadata, report_file)
+    check_metadata(metadata, report)
     logging.info("Checking gaze data...")
-    check_gaze(gaze, report_file)
+    check_gaze(gaze, report)
     logging.info("Preprocessing...")
     preprocess(gaze)
     logging.info("Checking event data...")
-    check_events(gaze.events, report_file)
+    check_events(gaze.events, report)
     logging.info("Generating gaze plots...")
     plot_gaze(gaze, args.stimulus_dir, args.plots_dir)
     logging.info("Generating main sequence plots...")
