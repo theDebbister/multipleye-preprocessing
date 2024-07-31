@@ -5,7 +5,7 @@ import math
 from functools import partial
 from glob import glob
 from pathlib import Path
-from typing import Any, Callable, TextIO
+from typing import Any, Callable, TextIO, Union
 
 import matplotlib.pyplot as plt
 import PIL
@@ -109,7 +109,7 @@ def load_data(
     return gaze, metadata
 
 
-ReportFunction = Callable[[str, Any, list | tuple], None]
+ReportFunction = Callable[[str, Any, Union[list, tuple]], None]
 
 
 def check_metadata(metadata: dict[str, Any], report: ReportFunction) -> None:
@@ -285,7 +285,7 @@ def plot_main_sequence(events: pm.EventDataFrame, plots_dir: Path) -> None:
 def report_to_file(
     name: str,
     values: Any,
-    acceptable_values: list | tuple,
+    acceptable_values: Union[list, tuple],
     *,
     report_file: TextIO,
     percentage: bool = False,
