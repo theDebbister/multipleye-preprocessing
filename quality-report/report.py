@@ -88,8 +88,10 @@ def load_data(
     )
 
     # Extract metadata from stimulus config and ASC file
+    stimulus_config_path = stimulus_dir / "config" / "config_hr_ch_Zurich_1_2025.py"
+    assert stimulus_config_path.exists(), f"Stimulus config not found at {stimulus_config_path}"
     stimulus_config_spec = importlib.util.spec_from_file_location(
-        "stimulus_config", stimulus_dir / "config" / "config_hr_ch_Zurich_1_2025.py"
+        "stimulus_config", stimulus_config_path
     )
     stimulus_config = importlib.util.module_from_spec(stimulus_config_spec)
     stimulus_config_spec.loader.exec_module(stimulus_config)
@@ -340,6 +342,17 @@ def main() -> None:
     check_gaze(gaze, report)
     logging.info("Preprocessing...")
     preprocess(gaze)
+
+    # import pickle
+
+    # # with open("tmp.pkl", "wb") as f:
+    # #     pickle.dump(gaze, f)
+    # # exit()
+    # # with open("tmp.pkl", "rb") as f:
+    # #     gaze = pickle.load(f)
+    # # print(gaze)
+    # # print(gaze.events)
+
     logging.info("Checking event data...")
     check_events(gaze.events, report)
     logging.info("Generating gaze plots...")
