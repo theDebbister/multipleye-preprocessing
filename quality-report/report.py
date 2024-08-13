@@ -22,7 +22,6 @@ def load_data(
     gaze, metadata = pm.gaze.from_asc(
         asc_file,
         patterns=[
-            # TODO: Update patterns (https://github.com/theDebbister/multipleye-preprocessing/issues/5#issuecomment-2230701372)
             r"start_recording_(?P<trial>(?:PRACTICE_)?trial_\d+)_stimulus_(?P<stimulus>[^_]+_[^_]+_\d+)_(?P<screen>.+)",
             {"pattern": r"stop_recording_", "column": "trial", "value": None},
             {"pattern": r"stop_recording_", "column": "screen", "value": None},
@@ -100,8 +99,8 @@ def check_metadata(metadata: dict[str, Any], report: ReportFunction) -> None:
         for validation in metadata["validations"]
     ]
     report(
-        "AVG validation score",
-        sum(validation_scores_avg) / len(validation_scores_avg),
+        "AVG validation scores",
+        validation_scores_avg,
         config.ACCEPTABLE_AVG_VALIDATION_SCORES,
     )
     validation_scores_max = [
@@ -109,8 +108,8 @@ def check_metadata(metadata: dict[str, Any], report: ReportFunction) -> None:
         for validation in metadata["validations"]
     ]
     report(
-        "MAX validation score",
-        max(validation_scores_max),
+        "MAX validation scores",
+        validation_scores_max,
         config.ACCEPTABLE_MAX_VALIDATION_SCORES,
     )
     validation_errors = [
@@ -133,16 +132,20 @@ def check_metadata(metadata: dict[str, Any], report: ReportFunction) -> None:
         config.ACCEPTABLE_DATA_LOSS_RATIOS,
         percentage=True,
     )
-    total_recording_duration_ms = metadata["total_recording_duration_ms"]
+    total_recording_duration = metadata["total_recording_duration_ms"] / 1000
     report(
         "Total recording duration",
-        total_recording_duration_ms,
+        total_recording_duration,
         config.ACCEPTABLE_RECORDING_DURATIONS,
     )
 
 
 def check_gaze(gaze: pm.GazeDataFrame, report: ReportFunction) -> None:
-    pass  # TODO: All trials present, all pages, questions and ratings present, plausible reading times etc.
+    num_practice_trials = gaze.frame.filter(pl.col("practice") == True).select(pl.col("trial")).n_unique()
+    report("Number of practice trials", num_practice_trials, config.ACCEPTABLE_NUM_PRACTICE_TRIALS)
+    num_trials = gaze.frame.filter(pl.col("practice") == False).select(pl.col("trial")).n_unique()
+    report("Number of trials", num_trials, config.ACCEPTABLE_NUM_TRIALS)
+    # TODO: All trials present, all pages, questions and ratings present, plausible reading times etc.
 
 
 def preprocess(gaze: pm.GazeDataFrame) -> None:
@@ -244,24 +247,26 @@ def plot_main_sequence(events: pm.EventDataFrame, plots_dir: Path) -> None:
 def report_to_file(
     name: str,
     values: Any,
-    acceptable_values: Union[list, tuple],
+    acceptable_values: Any,
     *,
     report_file: TextIO,
     percentage: bool = False,
 ) -> None:
     if not isinstance(values, (list, tuple)):
         values = [values]
+    result = "❌"
+
     if isinstance(acceptable_values, list):  # List of acceptable values
         if all(value in acceptable_values for value in values):
             result = "✅"
-        else:
-            result = "❌"
     elif isinstance(acceptable_values, tuple):  # Range of acceptable values
         lower, upper = acceptable_values
         if all((lower <= value) and (upper >= value) for value in values):
             result = "✅"
-        else:
-            result = "❌"
+    else:  # Single acceptable value
+        if all(value == acceptable_values for value in values):
+            result = "✅"
+
     if percentage:
         values = [f"{value:.2%}" for value in values]
     report_file.write(f"{result} {name}: {', '.join(map(str, values))}\n")
@@ -299,6 +304,7 @@ def main() -> None:
     check_metadata(metadata, report)
     logging.info("Checking gaze data...")
     check_gaze(gaze, report)
+    exit()
     logging.info("Preprocessing...")
     preprocess(gaze)
 
