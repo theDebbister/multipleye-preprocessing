@@ -23,16 +23,16 @@ def load_data(
         asc_file,
         patterns=[
             # TODO: Update patterns (https://github.com/theDebbister/multipleye-preprocessing/issues/5#issuecomment-2230701372)
-            r"start_recording_(?P<trial>(?:PRACTICE_)?trial_\d+)_(?P<screen>.+)",
+            r"start_recording_(?P<trial>(?:PRACTICE_)?trial_\d+)_stimulus_(?P<stimulus>[^_]+_[^_]+_\d+)_(?P<screen>.+)",
             {"pattern": r"stop_recording_", "column": "trial", "value": None},
             {"pattern": r"stop_recording_", "column": "screen", "value": None},
             {
-                "pattern": r"start_recording_(?:PRACTICE_)?trial_\d+_page_\d+",
+                "pattern": r"start_recording_(?:PRACTICE_)?trial_\d+_stimulus_[^_]+_[^_]+_\d+_page_\d+",
                 "column": "activity",
                 "value": "reading",
             },
             {
-                "pattern": r"start_recording_(?:PRACTICE_)?trial_\d+_question_\d+",
+                "pattern": r"start_recording_(?:PRACTICE_)?trial_\d+_stimulus_[^_]+_[^_]+_\d+_question_\d+",
                 "column": "activity",
                 "value": "question",
             },
@@ -54,27 +54,7 @@ def load_data(
             },
             {"pattern": r"stop_recording_", "column": "practice", "value": None},
         ],
-        trial_columns=["trial", "screen"],
-    )
-
-    # Map trial numbers to stimulus IDs
-    # TODO: Read stimulus IDs from ASC file (https://github.com/theDebbister/multipleye-preprocessing/issues/5#issuecomment-2230701372)
-    stimulus_ids = {
-        "PRACTICE_trial_1": 13,
-        "PRACTICE_trial_2": 7,
-        "trial_1": 9,
-        "trial_2": 10,
-        "trial_3": 11,
-        "trial_4": 6,
-        "trial_5": 1,
-        "trial_6": 2,
-        "trial_7": 3,
-        "trial_8": 4,
-        "trial_9": 12,
-        "trial_10": 8,
-    }
-    gaze.frame = gaze.frame.with_columns(
-        pl.col("trial").replace(stimulus_ids).alias("stimulus")
+        trial_columns=["trial", "stimulus", "screen"],
     )
 
     # Filter out data outside of trials
@@ -83,13 +63,11 @@ def load_data(
         pl.col("trial").is_not_null() & pl.col("screen").is_not_null()
     )
 
-    gaze.frame = gaze.frame.with_columns(
-        pl.col("trial").replace(stimulus_ids).alias("stimulus_id")
-    )
-
     # Extract metadata from stimulus config and ASC file
-    stimulus_config_path = stimulus_dir / "config" / "config_hr_ch_Zurich_1_2025.py"
-    assert stimulus_config_path.exists(), f"Stimulus config not found at {stimulus_config_path}"
+    stimulus_config_path = stimulus_dir / "config" / "config_zh_ch_Zurich_1_2025.py"
+    assert (
+        stimulus_config_path.exists()
+    ), f"Stimulus config not found at {stimulus_config_path}"
     stimulus_config_spec = importlib.util.spec_from_file_location(
         "stimulus_config", stimulus_config_path
     )
@@ -205,6 +183,8 @@ def plot_gaze(gaze: pm.GazeDataFrame, stimulus_dir: Path, plots_dir: Path) -> No
         .unique()
         .iter_rows()
     ):
+        stimulus_genre, stimulus_name, stimulus_id = stimulus.split("_")
+
         screen_gaze = gaze.frame.filter(
             (pl.col("trial") == trial) & (pl.col("screen") == screen)
         ).select(
@@ -223,34 +203,13 @@ def plot_gaze(gaze: pm.GazeDataFrame, stimulus_dir: Path, plots_dir: Path) -> No
 
         fig, ax = plt.subplots()
         if screen.startswith("page_"):
-            (stimulus_image_path,) = glob(
-                str(
-                    stimulus_dir
-                    / "stimuli_images_hr_ch_1"
-                    / f"*_id{stimulus}_{screen}_hr.png"
-                )
-            )
+            stimulus_image_path = stimulus_dir / "stimuli_images_zh_ch_1" / f"{stimulus_genre.lower()}_{stimulus_name.lower()}_id{stimulus_id}_{screen}_zh.png"
         elif screen.startswith("question_"):
-            question_number = int(screen.split("_")[1])
+            question_id = int(screen.split("_")[1])
             version = 1  # TODO: Use the correct version (question/answer order) for this subject
-            stimulus_image_path = sorted(
-                glob(
-                    str(
-                        stimulus_dir
-                        / "question_images_hr_ch_1"
-                        / f"question_images_version_{version}"
-                        / f"*_id{stimulus}_question_*.png"
-                    )
-                )
-            )[question_number - 1]
+            stimulus_image_path = stimulus_dir / "question_images_zh_ch_1" / f"question_images_version_{version}" / f"{stimulus_genre}_{stimulus_name}_id{stimulus_id}_question_{question_id:05.0f}_zh.png"
         else:
-            (stimulus_image_path,) = glob(
-                str(
-                    stimulus_dir
-                    / f"participant_instructions_images_hr_ch_1"
-                    / f"{screen}_hr.png"
-                )
-            )
+            stimulus_image_path = stimulus_dir / f"participant_instructions_images_zh_ch_1" / f"{screen}_zh.png"
         stimulus_image = PIL.Image.open(stimulus_image_path)
         ax.imshow(stimulus_image)
         plt.plot(
@@ -345,19 +304,18 @@ def main() -> None:
 
     # import pickle
 
-    # # with open("tmp.pkl", "wb") as f:
-    # #     pickle.dump(gaze, f)
-    # # exit()
-    # # with open("tmp.pkl", "rb") as f:
-    # #     gaze = pickle.load(f)
-    # # print(gaze)
-    # # print(gaze.events)
+    # with open("tmp.pkl", "wb") as f:
+    #     pickle.dump(gaze, f)
+    # exit()
+
+    # with open("tmp.pkl", "rb") as f:
+    #     gaze = pickle.load(f)
 
     logging.info("Checking event data...")
     check_events(gaze.events, report)
     logging.info("Generating gaze plots...")
     plot_gaze(gaze, args.stimulus_dir, args.plots_dir)
-    logging.info("Generating main sequence plots...")
+    logging.info("Generating main sequence plot...")
     plot_main_sequence(gaze.events, args.plots_dir)
 
 
