@@ -16,10 +16,8 @@ from matplotlib.patches import Circle
 import config
 
 
-def load_data(
-    asc_file: Path, stimulus_dir: Path
-) -> tuple[pm.GazeDataFrame, dict[str, Any]]:
-    gaze, metadata = pm.gaze.from_asc(
+def load_data(asc_file: Path, stimulus_dir: Path) -> pm.GazeDataFrame:
+    gaze = pm.gaze.from_asc(
         asc_file,
         patterns=[
             r"start_recording_(?P<trial>(?:PRACTICE_)?trial_\d+)_stimulus_(?P<stimulus>[^_]+_[^_]+_\d+)_(?P<screen>.+)",
@@ -76,14 +74,14 @@ def load_data(
     # assert metadata["resolution"][0] == stimulus_config.IMAGE_WIDTH_PX, f"Image width mismatch: {metadata['resolution'][0]} != {stimulus_config.IMAGE_WIDTH_PX}"
     # assert metadata["resolution"][1] == stimulus_config.IMAGE_HEIGHT_PX, f"Image height mismatch: {metadata['resolution'][1]} != {stimulus_config.IMAGE_HEIGHT_PX}"
     gaze.experiment = pm.Experiment(
-        sampling_rate=metadata["sampling_rate"],
+        sampling_rate=gaze._metadata["sampling_rate"],
         screen_width_px=stimulus_config.IMAGE_WIDTH_PX,
         screen_height_px=stimulus_config.IMAGE_HEIGHT_PX,
         screen_width_cm=stimulus_config.IMAGE_SIZE_CM[0],
         screen_height_cm=stimulus_config.IMAGE_SIZE_CM[1],
         distance_cm=stimulus_config.DISTANCE_CM,
     )
-    return gaze, metadata
+    return gaze
 
 
 ReportFunction = Callable[[str, Any, Union[list, tuple]], None]
@@ -141,9 +139,19 @@ def check_metadata(metadata: dict[str, Any], report: ReportFunction) -> None:
 
 
 def check_gaze(gaze: pm.GazeDataFrame, report: ReportFunction) -> None:
-    num_practice_trials = gaze.frame.filter(pl.col("practice") == True).select(pl.col("trial")).n_unique()
-    report("Number of practice trials", num_practice_trials, config.ACCEPTABLE_NUM_PRACTICE_TRIALS)
-    num_trials = gaze.frame.filter(pl.col("practice") == False).select(pl.col("trial")).n_unique()
+    num_practice_trials = (
+        gaze.frame.filter(pl.col("practice") == True).select(pl.col("trial")).n_unique()
+    )
+    report(
+        "Number of practice trials",
+        num_practice_trials,
+        config.ACCEPTABLE_NUM_PRACTICE_TRIALS,
+    )
+    num_trials = (
+        gaze.frame.filter(pl.col("practice") == False)
+        .select(pl.col("trial"))
+        .n_unique()
+    )
     report("Number of trials", num_trials, config.ACCEPTABLE_NUM_TRIALS)
     # TODO: All trials present, all pages, questions and ratings present, plausible reading times etc.
 
@@ -206,13 +214,26 @@ def plot_gaze(gaze: pm.GazeDataFrame, stimulus_dir: Path, plots_dir: Path) -> No
 
         fig, ax = plt.subplots()
         if screen.startswith("page_"):
-            stimulus_image_path = stimulus_dir / "stimuli_images_zh_ch_1" / f"{stimulus_genre.lower()}_{stimulus_name.lower()}_id{stimulus_id}_{screen}_zh.png"
+            stimulus_image_path = (
+                stimulus_dir
+                / "stimuli_images_zh_ch_1"
+                / f"{stimulus_genre.lower()}_{stimulus_name.lower()}_id{stimulus_id}_{screen}_zh.png"
+            )
         elif screen.startswith("question_"):
             question_id = int(screen.split("_")[1])
             version = 1  # TODO: Use the correct version (question/answer order) for this subject
-            stimulus_image_path = stimulus_dir / "question_images_zh_ch_1" / f"question_images_version_{version}" / f"{stimulus_genre}_{stimulus_name}_id{stimulus_id}_question_{question_id:05.0f}_zh.png"
+            stimulus_image_path = (
+                stimulus_dir
+                / "question_images_zh_ch_1"
+                / f"question_images_version_{version}"
+                / f"{stimulus_genre}_{stimulus_name}_id{stimulus_id}_question_{question_id:05.0f}_zh.png"
+            )
         else:
-            stimulus_image_path = stimulus_dir / f"participant_instructions_images_zh_ch_1" / f"{screen}_zh.png"
+            stimulus_image_path = (
+                stimulus_dir
+                / f"participant_instructions_images_zh_ch_1"
+                / f"{screen}_zh.png"
+            )
         stimulus_image = PIL.Image.open(stimulus_image_path)
         ax.imshow(stimulus_image)
         plt.plot(
@@ -299,12 +320,11 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO)
 
     logging.info("Loading data...")
-    gaze, metadata = load_data(args.asc_file, args.stimulus_dir)
+    gaze = load_data(args.asc_file, args.stimulus_dir)
     logging.info("Checking metadata...")
-    check_metadata(metadata, report)
+    check_metadata(gaze._metadata, report)
     logging.info("Checking gaze data...")
     check_gaze(gaze, report)
-    exit()
     logging.info("Preprocessing...")
     preprocess(gaze)
 

@@ -1,2 +1,2 @@
-git+https://github.com/saeub/pymovements@quality-report
+git+https://github.com/aeye-lab/pymovements@180d7e5f4535221a87fe9b8a44cfb1406231a0bc
 pillow==10.4.0
