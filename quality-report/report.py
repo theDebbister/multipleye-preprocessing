@@ -136,7 +136,11 @@ def check_metadata(metadata: dict[str, Any], report: ReportFunction) -> None:
         total_recording_duration,
         config.ACCEPTABLE_RECORDING_DURATIONS,
     )
-
+    sampling_rate = metadata["sampling_rate"]
+    report("Sampling rate",
+           sampling_rate,
+    config.EXPECTED_SAMPLING_RATE,
+           )
 
 def check_gaze(gaze: pm.GazeDataFrame, report: ReportFunction) -> None:
     num_practice_trials = (
