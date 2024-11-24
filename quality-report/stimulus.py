@@ -24,6 +24,7 @@ class StimulusPage:
     number: int
     text: str
     image_path: Path
+    # TODO: aois (as pymovements TextStimulus)
 
 
 @dataclass
@@ -32,8 +33,8 @@ class Stimulus:
     name: str
     type: Literal["experiment", "practice"]
     pages: list[StimulusPage]
+    aoi_path: Path
     # TODO: questions
-    # TODO: aois
 
     @classmethod
     def load(
@@ -64,11 +65,15 @@ class Stimulus:
                     assert page.image_path.exists(), f"File {page.image_path} does not exist"
                     pages.append(page)
 
+        aoi_path = stimulus_dir / f"aoi_stimuli_{lang}_{country}_{labnum}" / f"{stimulus_name.lower()}_{stimulus_id}_aoi.csv"
+        assert aoi_path.exists(), f"File {aoi_path} does not exist"
+
         stimulus = cls(
             id=stimulus_id,
             name=stimulus_name,
             type=stimulus_type,
             pages=pages,
+            aoi_path=aoi_path,
         )
         return stimulus
 
