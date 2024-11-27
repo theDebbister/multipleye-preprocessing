@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
-import pandas as pd
+
+import polars as pl
+import pymovements as pm
 
 NAMES = [
     "PopSci_MultiplEYE",
@@ -24,7 +26,6 @@ class StimulusPage:
     number: int
     text: str
     image_path: Path
-    # TODO: aois (as pymovements TextStimulus)
 
 
 @dataclass
@@ -33,47 +34,70 @@ class Stimulus:
     name: str
     type: Literal["experiment", "practice"]
     pages: list[StimulusPage]
-    aoi_path: Path
+    text_stimulus: pm.stimulus.TextStimulus
     # TODO: questions
 
     @classmethod
     def load(
-        cls, stimulus_dir: Path, lang: str, country: str, labnum: int, stimulus_name: str
+        cls,
+        stimulus_dir: Path,
+        lang: str,
+        country: str,
+        labnum: int,
+        stimulus_name: str,
     ):
         assert stimulus_name in NAMES, f"{stimulus_name!r} is not a valid stimulus name"
         stimulus_df_path = stimulus_dir / f"multipleye_stimuli_experiment_{lang}.xlsx"
-        stimulus_df = pd.read_excel(stimulus_df_path)
-        stimulus_rows = stimulus_df[stimulus_df["stimulus_name"] == stimulus_name]
-        assert len(stimulus_rows) == 1, f"{len(stimulus_rows)} rows found for stimulus {stimulus_name} in {stimulus_df_path}"
+        stimulus_df = pl.read_excel(stimulus_df_path)
+        stimulus_row = stimulus_df.row(
+            by_predicate=pl.col("stimulus_name") == stimulus_name, named=True
+        )
 
-        stimulus_row = stimulus_rows.iloc[0]
-        stimulus_id = int(stimulus_row["stimulus_id"])
+        stimulus_id = stimulus_row["stimulus_id"]
         stimulus_type = stimulus_row["stimulus_type"]
 
         pages = []
         for column, value in stimulus_row.items():
-            if column.startswith("page_"):
+            if column.startswith("page_") and value is not None:
                 page_number = int(column.split("_")[1])
-                if pd.notna(value):
-                    image_filename = f"{stimulus_name.lower()}_id{stimulus_id}_page_{page_number}_{lang}.png"
-                    image_path=stimulus_dir / f"stimuli_images_{lang}_{country}_{labnum}" / image_filename
-                    page = StimulusPage(
-                        number=page_number,
-                        text=value,
-                        image_path=image_path,
-                    )
-                    assert page.image_path.exists(), f"File {page.image_path} does not exist"
-                    pages.append(page)
+                image_filename = f"{stimulus_name.lower()}_id{stimulus_id}_page_{page_number}_{lang}.png"
+                image_path = (
+                    stimulus_dir
+                    / f"stimuli_images_{lang}_{country}_{labnum}"
+                    / image_filename
+                )
 
-        aoi_path = stimulus_dir / f"aoi_stimuli_{lang}_{country}_{labnum}" / f"{stimulus_name.lower()}_{stimulus_id}_aoi.csv"
-        assert aoi_path.exists(), f"File {aoi_path} does not exist"
+                page = StimulusPage(
+                    number=page_number,
+                    text=value,
+                    image_path=image_path,
+                )
+                assert (
+                    page.image_path.exists()
+                ), f"File {page.image_path} does not exist"
+                pages.append(page)
+
+        aoi_path = (
+            stimulus_dir
+            / f"aoi_stimuli_{lang}_{country}_{labnum}"
+            / f"{stimulus_name.lower()}_{stimulus_id}_aoi.csv"
+        )
+        text_stimulus = pm.stimulus.text.from_file(
+            aoi_path,
+            aoi_column="char",
+            start_x_column="top_left_x",
+            start_y_column="top_left_y",
+            width_column="width",
+            height_column="height",
+            page_column="page",
+        )
 
         stimulus = cls(
             id=stimulus_id,
             name=stimulus_name,
             type=stimulus_type,
             pages=pages,
-            aoi_path=aoi_path,
+            text_stimulus=text_stimulus,
         )
         return stimulus
 
