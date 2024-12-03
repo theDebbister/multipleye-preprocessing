@@ -103,7 +103,7 @@ class Stimulus:
 
 
 if __name__ == "__main__":
-    stimulus_dir = Path("010_ZH_CH_1_ET1/stimuli_MultiplEYE_zh_ch_Zurich_1_2025")
+    stimulus_dir = Path("C:\\Users\saphi\PycharmProjects\multipleye-preprocessing\data\stimuli_MultiplEYE_zh_ch_Zurich_1_2025")
     lang = "zh"
     country = "ch"
     labnum = 1
@@ -112,3 +112,5 @@ if __name__ == "__main__":
     stimulus = Stimulus.load(stimulus_dir, lang, country, labnum, stimulus_name)
     for page in stimulus.pages:
         print(page.number, page.image_path)
+
+    print(stimulus)

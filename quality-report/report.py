@@ -16,7 +16,7 @@ from matplotlib.patches import Circle
 import config
 
 
-def load_data(asc_file: Path, stimulus_dir: Path) -> pm.GazeDataFrame:
+def load_data(asc_file: Path, stimulus_dir: Path, config: Path) -> pm.GazeDataFrame:
     gaze = pm.gaze.from_asc(
         asc_file,
         patterns=[
@@ -61,13 +61,14 @@ def load_data(asc_file: Path, stimulus_dir: Path) -> pm.GazeDataFrame:
     )
 
     # Extract metadata from stimulus config and ASC file
-    stimulus_config_path = stimulus_dir / "config" / "config_zh_ch_Zurich_1_2025.py"
+    stimulus_config_path = config
     assert (
         stimulus_config_path.exists()
     ), f"Stimulus config not found at {stimulus_config_path}"
     stimulus_config_spec = importlib.util.spec_from_file_location(
         "stimulus_config", stimulus_config_path
     )
+    print(stimulus_config_spec)
     stimulus_config = importlib.util.module_from_spec(stimulus_config_spec)
     stimulus_config_spec.loader.exec_module(stimulus_config)
     # TODO: Uncomment assertions when experiment implementation is fixed (https://www.sr-research.com/support/thread-9129.html)
@@ -192,7 +193,7 @@ def check_events(events: pm.EventDataFrame, report: ReportFunction) -> None:
     pass  # TODO: Fixations on/off stimulus etc.
 
 
-def plot_gaze(gaze: pm.GazeDataFrame, stimulus_dir: Path, plots_dir: Path) -> None:
+def plot_gaze(gaze: pm.GazeDataFrame, stimulus_dir: Path, plots_dir: Path, ) -> None:
     for trial, stimulus, screen in (
         gaze.frame.select(pl.col("trial"), pl.col("stimulus"), pl.col("screen"))
         .unique()
