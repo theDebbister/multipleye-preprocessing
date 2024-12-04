@@ -1,3 +1,5 @@
+import importlib
+from glob import glob
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -20,12 +22,14 @@ NAMES = [
     "Lit_NorthWind",
 ]
 
+
 @dataclass
 class Instruction:
     id: int
     name: str
     text: str
     image_path: Path
+
 
 @dataclass
 class StimulusPage:
@@ -43,6 +47,7 @@ class ComprehensionQuestion:
     distractor_a: str
     distractor_b: str
     distractor_c: str
+    image_path: Path
 
 
 @dataclass
@@ -82,11 +87,10 @@ class Stimulus:
         for column, value in stimulus_row.items():
             if column.startswith("page_") and value is not None:
                 page_number = int(column.split("_")[1])
-                image_filename = f"{stimulus_name.lower()}_id{stimulus_id}_page_{page_number}_{lang}.png"
                 image_path = (
                     stimulus_dir
                     / f"stimuli_images_{lang}_{country}_{labnum}"
-                    / image_filename
+                    / f"{stimulus_name.lower()}_id{stimulus_id}_page_{page_number}_{lang}.png"
                 )
 
                 page = StimulusPage(
@@ -130,6 +134,12 @@ class Stimulus:
             distractor_a = question_row["distractor_a"]
             distractor_b = question_row["distractor_b"]
             distractor_c = question_row["distractor_c"]
+            question_image_path = (
+                stimulus_dir
+                / f"question_images_{lang}_{country}_{labnum}"
+                / "question_images_varsion_1"  # NOTE: We always use version 1 here (but different participants have different versions)
+                / f"{stimulus_name.lower()}_id{stimulus_id}_question_{question_id}_{lang}.png"
+            )
             question = ComprehensionQuestion(
                 name=question_name,
                 id=question_id,
@@ -138,11 +148,14 @@ class Stimulus:
                 distractor_a=distractor_a,
                 distractor_b=distractor_b,
                 distractor_c=distractor_c,
+                image_path=question_image_path,
             )
             questions.append(question)
-            
+
+        # TODO: Instructions are the same for all stimuli, so this is not the best place to put them
         instruction_df_path = (
-                stimulus_dir / f"multipleye_participant_instructions_{lang}_with_img_paths.csv"
+            stimulus_dir
+            / f"multipleye_participant_instructions_{lang}_with_img_paths.csv"
         )
         instruction_df = pl.read_csv(instruction_df_path)
         instructions = []
@@ -151,7 +164,11 @@ class Stimulus:
             instruction_id = instruction_row["instruction_screen_id"]
             instruction_name = instruction_row["instruction_screen_name"]
             instruction_text = instruction_row["instruction_screen_text"]
-            instruction_image_path = stimulus_dir/ f"participant_instructions_images_zh_ch_1/{instruction_row['instruction_screen_img_name']}"
+            instruction_image_path = (
+                stimulus_dir
+                / f"participant_instructions_images_{lang}_{country}_{labnum}"
+                / instruction_row["instruction_screen_img_name"]
+            )
 
             instruction = Instruction(
                 id=instruction_id,
