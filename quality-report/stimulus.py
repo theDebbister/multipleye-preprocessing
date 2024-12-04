@@ -29,13 +29,23 @@ class StimulusPage:
 
 
 @dataclass
+class ComprehensionQuestion:
+    id: str
+    question: str
+    target: str
+    distractor_a: str
+    distractor_b: str
+    distractor_c: str
+
+
+@dataclass
 class Stimulus:
     id: int
     name: str
     type: Literal["experiment", "practice"]
     pages: list[StimulusPage]
     text_stimulus: pm.stimulus.TextStimulus
-    # TODO: questions
+    questions: list[ComprehensionQuestion]
 
     @classmethod
     def load(
@@ -92,18 +102,47 @@ class Stimulus:
             page_column="page",
         )
 
+        questions_df_path = (
+            stimulus_dir / f"multipleye_comprehension_questions_{lang}.xlsx"
+        )
+        questions_df = pl.read_excel(questions_df_path)
+        question_rows = questions_df.filter(
+            pl.col("stimulus_name") == stimulus_name
+        ).rows(named=True)
+        questions = []
+        for question_row in question_rows:
+            question_id = question_row["item_id"]
+            question = question_row["question"]
+            target = question_row["target"]
+            distractor_a = question_row["distractor_a"]
+            distractor_b = question_row["distractor_b"]
+            distractor_c = question_row["distractor_c"]
+            question = ComprehensionQuestion(
+                id=question_id,
+                question=question,
+                target=target,
+                distractor_a=distractor_a,
+                distractor_b=distractor_b,
+                distractor_c=distractor_c,
+            )
+            questions.append(question)
+        assert (
+            len(questions) == 6
+        ), f"{stimulus_id} has {len(questions)} questions instead of 6"
+
         stimulus = cls(
             id=stimulus_id,
             name=stimulus_name,
             type=stimulus_type,
             pages=pages,
             text_stimulus=text_stimulus,
+            questions=questions,
         )
         return stimulus
 
 
 if __name__ == "__main__":
-    stimulus_dir = Path("C:\\Users\saphi\PycharmProjects\multipleye-preprocessing\data\stimuli_MultiplEYE_zh_ch_Zurich_1_2025")
+    stimulus_dir = Path("010_ZH_CH_1_ET1", "stimuli_MultiplEYE_zh_ch_Zurich_1_2025")
     lang = "zh"
     country = "ch"
     labnum = 1
