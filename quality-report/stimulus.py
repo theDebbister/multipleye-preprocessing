@@ -55,7 +55,7 @@ class Stimulus:
         country: str,
         labnum: int,
         stimulus_name: str,
-    ):
+    ) -> "Stimulus":
         assert stimulus_name in NAMES, f"{stimulus_name!r} is not a valid stimulus name"
         stimulus_df_path = stimulus_dir / f"multipleye_stimuli_experiment_{lang}.xlsx"
         stimulus_df = pl.read_excel(stimulus_df_path)
@@ -65,6 +65,10 @@ class Stimulus:
 
         stimulus_id = stimulus_row["stimulus_id"]
         stimulus_type = stimulus_row["stimulus_type"]
+        assert stimulus_type in [
+            "experiment",
+            "practice",
+        ], f"{stimulus_type!r} is not a valid stimulus type"
 
         pages = []
         for column, value in stimulus_row.items():
@@ -126,9 +130,14 @@ class Stimulus:
                 distractor_c=distractor_c,
             )
             questions.append(question)
-        assert (
-            len(questions) == 6
-        ), f"{stimulus_id} has {len(questions)} questions instead of 6"
+        if stimulus_type == "experiment":
+            assert (
+                len(questions) == 6
+            ), f"{stimulus_id} has {len(questions)} questions instead of 6"
+        else:
+            assert (
+                len(questions) == 2
+            ), f"{stimulus_id} has {len(questions)} questions instead of 2"
 
         stimulus = cls(
             id=stimulus_id,
@@ -139,6 +148,16 @@ class Stimulus:
             questions=questions,
         )
         return stimulus
+
+
+def load_stimuli(
+    stimulus_dir: Path, lang: str, country: str, labnum: int
+) -> list[Stimulus]:
+    stimuli = []
+    for stimulus_name in NAMES:
+        stimulus = Stimulus.load(stimulus_dir, lang, country, labnum, stimulus_name)
+        stimuli.append(stimulus)
+    return stimuli
 
 
 if __name__ == "__main__":
