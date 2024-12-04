@@ -20,6 +20,12 @@ NAMES = [
     "Lit_NorthWind",
 ]
 
+@dataclass
+class Instruction:
+    id: int
+    name: str
+    text: str
+    image_path: Path
 
 @dataclass
 class StimulusPage:
@@ -30,6 +36,7 @@ class StimulusPage:
 
 @dataclass
 class ComprehensionQuestion:
+    name: str
     id: str
     question: str
     target: str
@@ -46,6 +53,7 @@ class Stimulus:
     pages: list[StimulusPage]
     text_stimulus: pm.stimulus.TextStimulus
     questions: list[ComprehensionQuestion]
+    instructions: list[Instruction]
 
     @classmethod
     def load(
@@ -115,13 +123,15 @@ class Stimulus:
         ).rows(named=True)
         questions = []
         for question_row in question_rows:
-            question_id = question_row["item_id"]
+            question_name = question_row["item_id"]
+            question_id = question_row["item_id"].split("_")[-1]
             question = question_row["question"]
             target = question_row["target"]
             distractor_a = question_row["distractor_a"]
             distractor_b = question_row["distractor_b"]
             distractor_c = question_row["distractor_c"]
             question = ComprehensionQuestion(
+                name=question_name,
                 id=question_id,
                 question=question,
                 target=target,
@@ -130,6 +140,31 @@ class Stimulus:
                 distractor_c=distractor_c,
             )
             questions.append(question)
+            
+        instruction_df_path = (
+                stimulus_dir / f"multipleye_participant_instructions_{lang}_with_img_paths.csv"
+        )
+        instruction_df = pl.read_csv(instruction_df_path)
+        instructions = []
+        for instruction_row in instruction_df.iter_rows(named=True):
+
+            instruction_id = instruction_row["instruction_screen_id"]
+            instruction_name = instruction_row["instruction_screen_name"]
+            instruction_text = instruction_row["instruction_screen_text"]
+            instruction_image_path = stimulus_dir/ f"participant_instructions_images_zh_ch_1/{instruction_row['instruction_screen_img_name']}"
+
+            instruction = Instruction(
+                id=instruction_id,
+                name=instruction_name,
+                text=instruction_text,
+                image_path=Path(instruction_image_path),
+            )
+
+            assert (
+                instruction.image_path.exists()
+            ), f"File {instruction.image_path} does not exist."
+            instructions.append(instruction)
+
         if stimulus_type == "experiment":
             assert (
                 len(questions) == 6
@@ -146,6 +181,7 @@ class Stimulus:
             pages=pages,
             text_stimulus=text_stimulus,
             questions=questions,
+            instructions=instructions,
         )
         return stimulus
 
@@ -161,12 +197,12 @@ def load_stimuli(
 
 
 if __name__ == "__main__":
-    stimulus_dir = Path("010_ZH_CH_1_ET1", "stimuli_MultiplEYE_zh_ch_Zurich_1_2025")
+    stimulus_dir = Path("C:\\Users\saphi\PycharmProjects\multipleye-preprocessing\data\stimuli_MultiplEYE_zh_ch_Zurich_1_2025")
     lang = "zh"
     country = "ch"
     labnum = 1
     stimulus_name = "PopSci_MultiplEYE"
-
+    print(stimulus_dir.exists())
     stimulus = Stimulus.load(stimulus_dir, lang, country, labnum, stimulus_name)
     for page in stimulus.pages:
         print(page.number, page.image_path)
