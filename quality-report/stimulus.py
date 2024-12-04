@@ -137,7 +137,7 @@ class Stimulus:
             question_image_path = (
                 stimulus_dir
                 / f"question_images_{lang}_{country}_{labnum}"
-                / "question_images_varsion_1"  # NOTE: We always use version 1 here (but different participants have different versions)
+                / "question_images_version_1"  # NOTE: We always use version 1 here (but different participants have different versions)
                 / f"{stimulus_name.lower()}_id{stimulus_id}_question_{question_id}_{lang}.png"
             )
             question = ComprehensionQuestion(
