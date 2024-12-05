@@ -61,7 +61,10 @@ def load_data(asc_file: Path, stimulus_dir: Path, config: Path) -> pm.GazeDataFr
     )
 
     # Extract metadata from stimulus config and ASC file
-    stimulus_config_path = config
+    if config:
+        stimulus_config_path = config
+    else:
+        stimulus_config_path = stimulus_dir / "config" / "config_zh_ch_Zurich_1_2025.py"
     assert (
         stimulus_config_path.exists()
     ), f"Stimulus config not found at {stimulus_config_path}"
@@ -270,6 +273,8 @@ def plot_main_sequence(events: pm.EventDataFrame, plots_dir: Path) -> None:
     )
 
 
+    # Filter out data outside of trials
+
 def report_to_file(
     name: str,
     values: Any,
@@ -325,9 +330,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO)
 
     logging.info("Loading data...")
-    gaze = load_data(args.asc_file, args.stimulus_dir)
-    logging.info("Checking metadata...")
-    check_metadata(gaze._metadata, report)
+    gaze = load_data(args.asc_file, args.stimulus_dir, config=None)
     logging.info("Checking gaze data...")
     check_gaze(gaze, report)
     logging.info("Preprocessing...")
