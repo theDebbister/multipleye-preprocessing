@@ -1,6 +1,7 @@
-import importlib
-from glob import glob
+import ast
+import json
 from dataclasses import dataclass
+from glob import glob
 from pathlib import Path
 from typing import Literal
 
@@ -203,14 +204,45 @@ class Stimulus:
         return stimulus
 
 
+@dataclass
+class LabConfig:
+    screen_resolution: tuple[int, int]
+    screen_size_cm: tuple[float, float]
+    screen_distance_cm: float
+
+    @classmethod
+    def load(cls, stimulus_dir: Path, lang: str, country: str, labnum: int):
+        config_path = glob(
+            f"MultiplEYE_{lang.upper()}_{country.upper()}_*_{labnum}_*_lab_configuration.json",
+            root_dir=stimulus_dir / "config",
+        )
+        assert (
+            len(config_path) == 1
+        ), f"Found {len(config_path)} config files: {config_path}"
+        config_path = stimulus_dir / "config" / config_path[0]
+        with open(config_path) as f:
+            config = json.load(f)
+
+        screen_resolution = ast.literal_eval(config["Monitor_resolution_in_px"])
+        screen_size_cm = ast.literal_eval(config["Screen_size_in_cm"])
+        screen_distance_cm = float(config["Distance_in_cm"])
+
+        return cls(
+            screen_resolution=screen_resolution,
+            screen_size_cm=screen_size_cm,
+            screen_distance_cm=screen_distance_cm,
+        )
+
+
 def load_stimuli(
     stimulus_dir: Path, lang: str, country: str, labnum: int
-) -> list[Stimulus]:
+) -> tuple[list[Stimulus], LabConfig]:
     stimuli = []
     for stimulus_name in NAMES:
         stimulus = Stimulus.load(stimulus_dir, lang, country, labnum, stimulus_name)
         stimuli.append(stimulus)
-    return stimuli
+    config = LabConfig.load(stimulus_dir, lang, country, labnum)
+    return stimuli, config
 
 
 if __name__ == "__main__":
