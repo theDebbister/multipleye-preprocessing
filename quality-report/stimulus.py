@@ -23,14 +23,12 @@ NAMES = [
     "Lit_NorthWind",
 ]
 
-
 @dataclass
 class Instruction:
     id: int
     name: str
     text: str
     image_path: Path
-
 
 @dataclass
 class StimulusPage:
@@ -170,6 +168,7 @@ class Stimulus:
                 / f"participant_instructions_images_{lang}_{country}_{labnum}"
                 / instruction_row["instruction_screen_img_name"]
             )
+            instruction_image_path = stimulus_dir/ f"participant_instructions_images_{lang}_{country}_1/{instruction_row['instruction_screen_img_name']}"
 
             instruction = Instruction(
                 id=instruction_id,
