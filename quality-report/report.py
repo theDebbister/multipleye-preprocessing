@@ -21,6 +21,7 @@ def load_data(asc_file: Path, stimulus_dir: Path, config: Path) -> pm.GazeDataFr
         asc_file,
         patterns=[
             r"start_recording_(?P<trial>(?:PRACTICE_)?trial_\d+)_stimulus_(?P<stimulus>[^_]+_[^_]+_\d+)_(?P<screen>.+)",
+            r"start_recording_(?P<trial>(?:PRACTICE_)?trial_\d+)_(?P<screen>familiarity_rating_screen_\d+|subject_difficulty_screen)",
             {"pattern": r"stop_recording_", "column": "trial", "value": None},
             {"pattern": r"stop_recording_", "column": "screen", "value": None},
             {
