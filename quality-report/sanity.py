@@ -10,7 +10,7 @@ from functools import partial
 from stimulus import Stimulus
 
 def extract_informatio_file_path(path_asc_file, local_file_path, stimulus_file_path, logfile_path):
-    regex = r"(?P<participant_number>\d{3})_(?P<lang>\w{2})_(?P<country>\w{2})_(?P<labnum>\d)_(?P<ET>ET\d)_(?P<extra>\w+)\\(?P<participant_abbr>\w+).asc"
+    regex = r"(?P<participant_number>\d{3})_(?P<lang>\w{2})_(?P<country>\w{2})_(?P<labnum>\d)_(?P<ET>ET\d)(?P<extra>_\w+)?\\(?P<participant_abbr>\w+).asc"
     stim_regex = r"stimuli_MultiplEYE_(?P<data_coll_abr>\w{2}_\w{2}_[a-zA-Z]+_\d_\d{4})"
     matches = re.search(regex, path_asc_file)
     vars_dict = matches.groupdict()

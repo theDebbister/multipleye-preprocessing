@@ -48,6 +48,11 @@ class ComprehensionQuestion:
     distractor_c: str
     image_path: Path
 
+@dataclass
+class Rating:
+    name: str
+    id: str
+    image_path: Path
 
 @dataclass
 class Stimulus:
@@ -58,6 +63,7 @@ class Stimulus:
     text_stimulus: pm.stimulus.TextStimulus
     questions: list[ComprehensionQuestion]
     instructions: list[Instruction]
+    #ratings: list[Rating]
 
     @classmethod
     def load(
@@ -224,7 +230,10 @@ class LabConfig:
 
         screen_resolution = ast.literal_eval(config["Monitor_resolution_in_px"])
         screen_size_cm = ast.literal_eval(config["Screen_size_in_cm"])
-        screen_distance_cm = float(config["Distance_in_cm"])
+        try:
+            screen_distance_cm = float(config["Distance_in_cm"])
+        except ValueError:
+            screen_distance_cm = 60.
 
         return cls(
             screen_resolution=screen_resolution,

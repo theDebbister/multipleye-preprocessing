@@ -197,6 +197,7 @@ def plot_gaze(gaze: pm.GazeDataFrame, stimulus: Stimulus, plots_dir: Path) -> No
         plt.close(fig)
 
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Generate plots for a MultiplEYE session"
