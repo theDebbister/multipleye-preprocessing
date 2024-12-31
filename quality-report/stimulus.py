@@ -24,6 +24,12 @@ NAMES = [
 ]
 
 @dataclass
+class Rating:
+    id: int
+    name: str
+    text: str
+    image_path: Path
+@dataclass
 class Instruction:
     id: int
     name: str
@@ -48,11 +54,7 @@ class ComprehensionQuestion:
     distractor_c: str
     image_path: Path
 
-@dataclass
-class Rating:
-    name: str
-    id: str
-    image_path: Path
+
 
 @dataclass
 class Stimulus:
@@ -63,7 +65,7 @@ class Stimulus:
     text_stimulus: pm.stimulus.TextStimulus
     questions: list[ComprehensionQuestion]
     instructions: list[Instruction]
-    #ratings: list[Rating]
+    ratings: list[Rating]
 
     @classmethod
     def load(
@@ -163,10 +165,17 @@ class Stimulus:
             / f"multipleye_participant_instructions_{lang}_with_img_paths.csv"
         )
         instruction_df = pl.read_csv(instruction_df_path)
+        #rating_df = instruction_df.filter(pl.col("instruction_screen_id").is_in([15.0, 16.0, 17.0]))
         instructions = []
+        ratings = []
         for instruction_row in instruction_df.iter_rows(named=True):
-
             instruction_id = instruction_row["instruction_screen_id"]
+            if instruction_id in [15.0, 16.0, 17.0]:
+                class_name = Rating
+                list_name = ratings
+            else:
+                class_name = Instruction
+                list_name = instructions
             instruction_name = instruction_row["instruction_screen_name"]
             instruction_text = instruction_row["instruction_screen_text"]
             instruction_image_path = (
@@ -176,7 +185,7 @@ class Stimulus:
             )
             instruction_image_path = stimulus_dir/ f"participant_instructions_images_{lang}_{country}_1/{instruction_row['instruction_screen_img_name']}"
 
-            instruction = Instruction(
+            instruction = class_name(
                 id=instruction_id,
                 name=instruction_name,
                 text=instruction_text,
@@ -186,7 +195,7 @@ class Stimulus:
             assert (
                 instruction.image_path.exists()
             ), f"File {instruction.image_path} does not exist."
-            instructions.append(instruction)
+            list_name.append(instruction)
 
         if stimulus_type == "experiment":
             assert (
@@ -205,6 +214,7 @@ class Stimulus:
             text_stimulus=text_stimulus,
             questions=questions,
             instructions=instructions,
+            ratings=ratings,
         )
         return stimulus
 
@@ -233,6 +243,7 @@ class LabConfig:
         try:
             screen_distance_cm = float(config["Distance_in_cm"])
         except ValueError:
+            print(f"Could not parse distance in cm from {config['Distance_in_cm']}, it will be set to 60.")
             screen_distance_cm = 60.
 
         return cls(
@@ -250,6 +261,7 @@ def load_stimuli(
         stimulus = Stimulus.load(stimulus_dir, lang, country, labnum, stimulus_name)
         stimuli.append(stimulus)
     config = LabConfig.load(stimulus_dir, lang, country, labnum)
+
     return stimuli, config
 
 
@@ -261,7 +273,7 @@ if __name__ == "__main__":
     stimulus_name = "PopSci_MultiplEYE"
     print(stimulus_dir.exists())
     stimulus = Stimulus.load(stimulus_dir, lang, country, labnum, stimulus_name)
-    for page in stimulus.pages:
-        print(page.number, page.image_path)
+    for page in stimulus.ratings:
+        print(page.name, page.image_path)
 
     print(stimulus)

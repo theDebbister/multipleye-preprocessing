@@ -51,6 +51,9 @@ def extract_informatio_file_path(path_asc_file, local_file_path, stimulus_file_p
     vars_dict["plot_dir"] = plot_dir
     logfile = pl.read_csv(logfile_path, separator="\t")
     vars_dict["logfile"] = logfile
+    vars_dict["completed_stimuli"] = Path(logfile_path).parent / "completed_stimuli.csv"
+    stimulus_order = pl.read_csv(vars_dict["completed_stimuli"], separator=",")
+    vars_dict["stimuli_order"] = stimulus_order["stimulus_id"].to_list()
 
     return vars_dict
 

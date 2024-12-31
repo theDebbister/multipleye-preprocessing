@@ -72,7 +72,7 @@ def load_data(asc_file: Path, lab_config: LabConfig) -> pm.GazeDataFrame:
 
 
 def preprocess(
-    gaze: pm.GazeDataFrame, sg_window_length: int = 50, sg_degree: int = 2
+        gaze: pm.GazeDataFrame, sg_window_length: int = 50, sg_degree: int = 2
 ) -> None:
     # Savitzky-Golay filter as in https://doi.org/10.3758/BRM.42.1.188
     window_length = round(gaze.experiment.sampling_rate / 1000 * sg_window_length)
@@ -197,6 +197,56 @@ def plot_gaze(gaze: pm.GazeDataFrame, stimulus: Stimulus, plots_dir: Path) -> No
         fig.savefig(plots_dir / f"{stimulus.name}_q{question.id}.png")
         plt.close(fig)
 
+    for rating in stimulus.ratings:
+        screen_name = (
+            f"{rating.name}"  # Screen names don't have leading zeros
+        )
+        screen_gaze = gaze.frame.filter(
+            (pl.col("trial") == f"trial_{stimulus.id}")
+            & (pl.col("screen") == screen_name)
+        ).select(
+            pl.col("pixel").list.get(0).alias("pixel_x"),
+
+            pl.col("pixel").list.get(1).alias("pixel_y"),
+        )
+        page_events = gaze.events.frame.filter(
+            (pl.col("stimulus") == f"trial_{stimulus.id}")
+            & (pl.col("screen") == screen_name)
+            & (pl.col("name") == "fixation")
+        ).select(
+            pl.col("duration"),
+            pl.col("location").list.get(0).alias("pixel_x"),
+            pl.col("location").list.get(1).alias("pixel_y"),
+        )
+
+        fig, ax = plt.subplots()
+        rating_image = PIL.Image.open(rating.image_path)
+        ax.imshow(rating_image)
+
+        # Plot raw gaze data
+        plt.plot(
+            screen_gaze["pixel_x"],
+            screen_gaze["pixel_y"],
+            color="black",
+            linewidth=0.5,
+            alpha=0.3,
+        )
+
+        # Plot fixations
+        for row in page_events.iter_rows(named=True):
+            fixation = Circle(
+                (row["pixel_x"], row["pixel_y"]),
+                math.sqrt(row["duration"]),
+                color="blue",
+                fill=True,
+                alpha=0.5,
+                zorder=10,
+            )
+            ax.add_patch(fixation)
+        ax.set_xlim((0, gaze.experiment.screen.width_px))
+        ax.set_ylim((gaze.experiment.screen.height_px, 0))
+        fig.savefig(plots_dir / f"{stimulus.name}_{stimulus.id}_{rating.name}.png")
+        plt.close(fig)
 
 
 if __name__ == "__main__":
@@ -207,6 +257,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "stimulus_dir", type=Path, help="Path to the stimulus directory"
     )
+
     parser.add_argument("--plots-dir", type=Path, required=True, help="Path to save the plots")
     args = parser.parse_args()
 
