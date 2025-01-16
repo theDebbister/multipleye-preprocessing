@@ -146,6 +146,11 @@ def check_metadata(metadata: dict[str, Any], report: ReportFunction) -> None:
            sampling_rate,
     config.EXPECTED_SAMPLING_RATE,
            )
+    tracked_eye = metadata["tracked_eye"]
+    report("tracked_eye",
+           tracked_eye,
+           config.TRACKED_EYE
+           )
 
 def check_gaze(gaze: pm.GazeDataFrame, report: ReportFunction) -> None:
     num_practice_trials = (

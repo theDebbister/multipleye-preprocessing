@@ -247,6 +247,10 @@ def plot_gaze(gaze: pm.GazeDataFrame, stimulus: Stimulus, plots_dir: Path) -> No
         ax.set_ylim((gaze.experiment.screen.height_px, 0))
         fig.savefig(plots_dir / f"{stimulus.name}_{stimulus.id}_{rating.name}.png")
         plt.close(fig)
+def plot_main_sequence(events: pm.EventDataFrame, plots_dir: Path) -> None:
+    pm.plotting.main_sequence_plot(
+        events, show=False, savepath=plots_dir / "main_sequence.png"
+    )
 
 
 if __name__ == "__main__":

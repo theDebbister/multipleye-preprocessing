@@ -273,7 +273,7 @@ if __name__ == "__main__":
     stimulus_name = "PopSci_MultiplEYE"
     print(stimulus_dir.exists())
     stimulus = Stimulus.load(stimulus_dir, lang, country, labnum, stimulus_name)
-    for page in stimulus.ratings:
+    for page in stimulus.questions:
         print(page.name, page.image_path)
 
     print(stimulus)
