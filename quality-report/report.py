@@ -65,6 +65,7 @@ def load_data(asc_file: Path, stimulus_dir: Path, config: Path) -> pm.GazeDataFr
     if config:
         stimulus_config_path = config
     else:
+        print("couldn't find config")
         stimulus_config_path = stimulus_dir / "config" / "config_zh_ch_Zurich_1_2025.py"
     assert (
         stimulus_config_path.exists()
@@ -93,6 +94,10 @@ ReportFunction = Callable[[str, Any, Union[list, tuple]], None]
 
 
 def check_metadata(metadata: dict[str, Any], report: ReportFunction) -> None:
+    date = f"{metadata['time']} {metadata['day']} {metadata['day']} {metadata['year']}"
+    report(
+        "Date", date, None
+    )
     num_calibrations = len(metadata["calibrations"])
     report(
         "Number of calibrations", num_calibrations, config.ACCEPTABLE_NUM_CALIBRATIONS
@@ -101,6 +106,10 @@ def check_metadata(metadata: dict[str, Any], report: ReportFunction) -> None:
         float(validation["validation_score_avg"])
         for validation in metadata["validations"]
     ]
+    num_validations = len(metadata["validations"])
+    report(
+        "Number of validations", num_validations, config.ACCEPTABLE_NUM_CALIBRATIONS
+    )
     report(
         "AVG validation scores",
         validation_scores_avg,
@@ -113,7 +122,7 @@ def check_metadata(metadata: dict[str, Any], report: ReportFunction) -> None:
     report(
         "MAX validation scores",
         validation_scores_max,
-        config.ACCEPTABLE_MAX_VALIDATION_SCORES,
+        config.TRACKED_EYE,
     )
     validation_errors = [
         validation["error"].removesuffix(" ERROR")
@@ -121,6 +130,21 @@ def check_metadata(metadata: dict[str, Any], report: ReportFunction) -> None:
     ]
     report("Validation errors", validation_errors, config.ACCEPTABLE_VALIDATION_ERRORS)
 
+    tracked_eye = metadata["tracked_eye"]
+    report("tracked_eye",
+           tracked_eye,
+           config.TRACKED_EYE
+           )
+
+    validation_eye = [
+        (validation["tracked_eye"][0])
+        for validation in metadata["validations"]
+    ]
+    report(
+        "Validation tracked Eyes",
+        validation_eye,
+        tracked_eye,
+    )
     data_loss_ratio = metadata["data_loss_ratio"]
     report(
         "Data loss ratio",
@@ -135,7 +159,7 @@ def check_metadata(metadata: dict[str, Any], report: ReportFunction) -> None:
         config.ACCEPTABLE_DATA_LOSS_RATIOS,
         percentage=True,
     )
-    total_recording_duration = metadata["total_recording_duration_ms"] / 1000
+    total_recording_duration = metadata["total_recording_duration_ms"] / 60000
     report(
         "Total recording duration",
         total_recording_duration,
@@ -145,11 +169,6 @@ def check_metadata(metadata: dict[str, Any], report: ReportFunction) -> None:
     report("Sampling rate",
            sampling_rate,
     config.EXPECTED_SAMPLING_RATE,
-           )
-    tracked_eye = metadata["tracked_eye"]
-    report("tracked_eye",
-           tracked_eye,
-           config.TRACKED_EYE
            )
 
 def check_gaze(gaze: pm.GazeDataFrame, report: ReportFunction) -> None:
@@ -305,7 +324,7 @@ def report_to_file(
             result = "✅"
 
     if percentage:
-        values = [f"{value:.2%}" for value in values]
+        values = [f"{value:.6%}" for value in values]
     report_file.write(f"{result} {name}: {', '.join(map(str, values))}\n")
 
 
