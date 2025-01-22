@@ -1,4 +1,5 @@
 import ast
+import importlib
 import json
 from dataclasses import dataclass
 from glob import glob
@@ -224,32 +225,32 @@ class LabConfig:
     screen_resolution: tuple[int, int]
     screen_size_cm: tuple[float, float]
     screen_distance_cm: float
+    image_resolution: tuple[int, int]
+    image_size_cm: tuple[float, float]
 
     @classmethod
     def load(cls, stimulus_dir: Path, lang: str, country: str, labnum: int):
         config_path = glob(
-            f"MultiplEYE_{lang.upper()}_{country.upper()}_*_{labnum}_*_lab_configuration.json",
+            f"config_{lang}_{country}_*_{labnum}_*.py",
             root_dir=stimulus_dir / "config",
         )
         assert (
             len(config_path) == 1
         ), f"Found {len(config_path)} config files: {config_path}"
         config_path = stimulus_dir / "config" / config_path[0]
-        with open(config_path) as f:
-            config = json.load(f)
 
-        screen_resolution = ast.literal_eval(config["Monitor_resolution_in_px"])
-        screen_size_cm = ast.literal_eval(config["Screen_size_in_cm"])
-        try:
-            screen_distance_cm = float(config["Distance_in_cm"])
-        except ValueError:
-            print(f"Could not parse distance in cm from {config['Distance_in_cm']}, it will be set to 60.")
-            screen_distance_cm = 60.
+        config_spec = importlib.util.spec_from_file_location(
+            "stimulus_config", config_path
+        )
+        config = importlib.util.module_from_spec(config_spec)
+        config_spec.loader.exec_module(config)
 
         return cls(
-            screen_resolution=screen_resolution,
-            screen_size_cm=screen_size_cm,
-            screen_distance_cm=screen_distance_cm,
+            screen_resolution=config.RESOLUTION,
+            screen_size_cm=config.SCREEN_SIZE_CM,
+            screen_distance_cm=config.DISTANCE_CM,
+            image_resolution=(config.IMAGE_WIDTH_PX, config.IMAGE_HEIGHT_PX),
+            image_size_cm=config.IMAGE_SIZE_CM,
         )
 
 
