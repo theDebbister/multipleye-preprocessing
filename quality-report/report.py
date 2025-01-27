@@ -94,7 +94,7 @@ ReportFunction = Callable[[str, Any, Union[list, tuple]], None]
 
 
 def check_metadata(metadata: dict[str, Any], report: ReportFunction) -> None:
-    date = f"{metadata['time']} {metadata['day']} {metadata['day']} {metadata['year']}"
+    date = f"{metadata['time']};     {metadata['day']}.{metadata['month']}.{metadata['year']}"
     report(
         "Date", date, None
     )
