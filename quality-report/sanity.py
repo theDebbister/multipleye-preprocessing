@@ -38,6 +38,7 @@ class Sanity:
     def load(cls, path_asc_file, local_file_path, stimulus_file_path, logfile_path) -> "Sanity":
         regex = r"(?P<participant_number>\d{3})_(?P<lang>\w{2})_(?P<country>\w{2})_(?P<labnum>\d)_(?P<ET>ET\d)(?P<extra>_\w+)?\\(?P<participant_abbr>\w+).asc"
         stim_regex = r"stimuli_MultiplEYE_(?P<data_coll_abr>\w{2}_\w{2}_[a-zA-Z]+_\d_\d{4})"
+        # TODO fix path  parsing problems, copatibility with windows and linux and then the regex parsing
         matches = re.search(regex, path_asc_file)
         vars_dict = matches.groupdict()
         stim_matches = re.search(stim_regex, stimulus_file_path)
