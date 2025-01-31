@@ -35,7 +35,12 @@ class Sanity:
         self.stimuli_order = self.completed_stimuli["stimulus_id"].to_list()
 
     @classmethod
-    def load(cls, path_asc_file, local_file_path, stimulus_file_path, logfile_path) -> "Sanity":
+    def load(cls,
+             path_asc_file: str,
+             local_file_path: str,
+             stimulus_file_path: str,
+             logfile_path: str,
+             ) -> "Sanity":
         regex = r"(?P<participant_number>\d{3})_(?P<lang>\w{2})_(?P<country>\w{2})_(?P<labnum>\d)_(?P<ET>ET\d)(?P<extra>_\w+)?\\(?P<participant_abbr>\w+).asc"
         stim_regex = r"stimuli_MultiplEYE_(?P<data_coll_abr>\w{2}_\w{2}_[a-zA-Z]+_\d_\d{4})"
         # TODO fix path  parsing problems, copatibility with windows and linux and then the regex parsing
