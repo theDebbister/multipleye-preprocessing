@@ -208,7 +208,7 @@ if __name__ == '__main__':
     #     }
     # )
 
-    #analyse_asc(
+    # analyse_asc(
     #     "/Users/debor/repos/wg1-experiment-implementation/experiment_implementation/multipleye_pilot_4/il1en001.asc",
     #     num=4,
     #     lab='haifa',

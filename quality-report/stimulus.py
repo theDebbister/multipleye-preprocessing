@@ -1,4 +1,3 @@
-import ast
 import importlib
 import json
 from dataclasses import dataclass
@@ -24,18 +23,22 @@ NAMES = [
     "Lit_NorthWind",
 ]
 
+
 @dataclass
 class Rating:
     id: int
     name: str
     text: str
     image_path: Path
+
+
 @dataclass
 class Instruction:
     id: int
     name: str
     text: str
     image_path: Path
+
 
 @dataclass
 class StimulusPage:
@@ -56,7 +59,6 @@ class ComprehensionQuestion:
     image_path: Path
 
 
-
 @dataclass
 class Stimulus:
     id: int
@@ -70,12 +72,12 @@ class Stimulus:
 
     @classmethod
     def load(
-        cls,
-        stimulus_dir: Path,
-        lang: str,
-        country: str,
-        labnum: int,
-        stimulus_name: str,
+            cls,
+            stimulus_dir: Path,
+            lang: str,
+            country: str,
+            labnum: int,
+            stimulus_name: str,
     ) -> "Stimulus":
         assert stimulus_name in NAMES, f"{stimulus_name!r} is not a valid stimulus name"
         stimulus_df_path = stimulus_dir / f"multipleye_stimuli_experiment_{lang}.xlsx"
@@ -96,9 +98,9 @@ class Stimulus:
             if column.startswith("page_") and value is not None:
                 page_number = int(column.split("_")[1])
                 image_path = (
-                    stimulus_dir
-                    / f"stimuli_images_{lang}_{country}_{labnum}"
-                    / f"{stimulus_name.lower()}_id{stimulus_id}_page_{page_number}_{lang}.png"
+                        stimulus_dir
+                        / f"stimuli_images_{lang}_{country}_{labnum}"
+                        / f"{stimulus_name.lower()}_id{stimulus_id}_page_{page_number}_{lang}.png"
                 )
 
                 page = StimulusPage(
@@ -112,9 +114,9 @@ class Stimulus:
                 pages.append(page)
 
         aoi_path = (
-            stimulus_dir
-            / f"aoi_stimuli_{lang}_{country}_{labnum}"
-            / f"{stimulus_name.lower()}_{stimulus_id}_aoi.csv"
+                stimulus_dir
+                / f"aoi_stimuli_{lang}_{country}_{labnum}"
+                / f"{stimulus_name.lower()}_{stimulus_id}_aoi.csv"
         )
         text_stimulus = pm.stimulus.text.from_file(
             aoi_path,
@@ -127,7 +129,7 @@ class Stimulus:
         )
 
         questions_df_path = (
-            stimulus_dir / f"multipleye_comprehension_questions_{lang}.xlsx"
+                stimulus_dir / f"multipleye_comprehension_questions_{lang}.xlsx"
         )
         questions_df = pl.read_excel(questions_df_path)
         question_rows = questions_df.filter(
@@ -143,10 +145,10 @@ class Stimulus:
             distractor_b = question_row["distractor_b"]
             distractor_c = question_row["distractor_c"]
             question_image_path = (
-                stimulus_dir
-                / f"question_images_{lang}_{country}_{labnum}"
-                / "question_images_version_1"  # NOTE: We always use version 1 here (but different participants have different versions)
-                / f"{stimulus_name}_id{stimulus_id}_question_{question_id}_{lang}.png"
+                    stimulus_dir
+                    / f"question_images_{lang}_{country}_{labnum}"
+                    / "question_images_version_1"  # NOTE: We always use version 1 here (but different participants have different versions)
+                    / f"{stimulus_name}_id{stimulus_id}_question_{question_id}_{lang}.png"
             )
             question = ComprehensionQuestion(
                 name=question_name,
@@ -162,11 +164,11 @@ class Stimulus:
 
         # TODO: Instructions are the same for all stimuli, so this is not the best place to put them
         instruction_df_path = (
-            stimulus_dir
-            / f"multipleye_participant_instructions_{lang}_with_img_paths.csv"
+                stimulus_dir
+                / f"multipleye_participant_instructions_{lang}_with_img_paths.csv"
         )
         instruction_df = pl.read_csv(instruction_df_path)
-        #rating_df = instruction_df.filter(pl.col("instruction_screen_id").is_in([15.0, 16.0, 17.0]))
+        # rating_df = instruction_df.filter(pl.col("instruction_screen_id").is_in([15.0, 16.0, 17.0]))
         instructions = []
         ratings = []
         for instruction_row in instruction_df.iter_rows(named=True):
@@ -180,11 +182,11 @@ class Stimulus:
             instruction_name = instruction_row["instruction_screen_name"]
             instruction_text = instruction_row["instruction_screen_text"]
             instruction_image_path = (
-                stimulus_dir
-                / f"participant_instructions_images_{lang}_{country}_{labnum}"
-                / instruction_row["instruction_screen_img_name"]
+                    stimulus_dir
+                    / f"participant_instructions_images_{lang}_{country}_{labnum}"
+                    / instruction_row["instruction_screen_img_name"]
             )
-            instruction_image_path = stimulus_dir/ f"participant_instructions_images_{lang}_{country}_1/{instruction_row['instruction_screen_img_name']}"
+            instruction_image_path = stimulus_dir / f"participant_instructions_images_{lang}_{country}_1/{instruction_row['instruction_screen_img_name']}"
 
             instruction = class_name(
                 id=instruction_id,
@@ -200,11 +202,11 @@ class Stimulus:
 
         if stimulus_type == "experiment":
             assert (
-                len(questions) == 6
+                    len(questions) == 6
             ), f"{stimulus_id} has {len(questions)} questions instead of 6"
         else:
             assert (
-                len(questions) == 2
+                    len(questions) == 2
             ), f"{stimulus_id} has {len(questions)} questions instead of 2"
 
         stimulus = cls(
@@ -227,15 +229,16 @@ class LabConfig:
     screen_distance_cm: float
     image_resolution: tuple[int, int]
     image_size_cm: tuple[float, float]
+    name_eye_tracker: str
 
     @classmethod
-    def load(cls, stimulus_dir: Path, lang: str, country: str, labnum: int):
+    def load(cls, stimulus_dir: Path, lang: str, country: str, labnum: int, city: str, year: int) -> "LabConfig":
         config_path = glob(
-            f"config_{lang}_{country}_*_{labnum}_*.py",
+            f"config_{lang.lower()}_{country.lower()}_*_{labnum}_*.py",
             root_dir=stimulus_dir / "config",
         )
         assert (
-            len(config_path) == 1
+                len(config_path) == 1
         ), f"Found {len(config_path)} config files: {config_path}"
         config_path = stimulus_dir / "config" / config_path[0]
 
@@ -245,29 +248,37 @@ class LabConfig:
         config = importlib.util.module_from_spec(config_spec)
         config_spec.loader.exec_module(config)
 
+        json_config_path = (stimulus_dir / "config"
+                            / f"MultiplEYE_{lang}_{country}_{city}_{labnum}_{year}_lab_configuration.json")
+
+        with open(json_config_path) as f:
+            json_config = json.load(f)
+
         return cls(
             screen_resolution=config.RESOLUTION,
             screen_size_cm=config.SCREEN_SIZE_CM,
             screen_distance_cm=config.DISTANCE_CM,
             image_resolution=(config.IMAGE_WIDTH_PX, config.IMAGE_HEIGHT_PX),
             image_size_cm=config.IMAGE_SIZE_CM,
+            name_eye_tracker=json_config["Name_eye-tracker"],
         )
 
 
 def load_stimuli(
-    stimulus_dir: Path, lang: str, country: str, labnum: int
+        stimulus_dir: Path, lang: str, country: str, labnum: int, city: str, year: int
 ) -> tuple[list[Stimulus], LabConfig]:
     stimuli = []
     for stimulus_name in NAMES:
         stimulus = Stimulus.load(stimulus_dir, lang, country, labnum, stimulus_name)
         stimuli.append(stimulus)
-    config = LabConfig.load(stimulus_dir, lang, country, labnum)
+    config = LabConfig.load(stimulus_dir, lang, country, labnum, city, year)
 
     return stimuli, config
 
 
 if __name__ == "__main__":
-    stimulus_dir = Path("C:\\Users\saphi\PycharmProjects\multipleye-preprocessing\data\stimuli_MultiplEYE_zh_ch_Zurich_1_2025")
+    stimulus_dir = Path(
+        "C:\\Users\saphi\PycharmProjects\multipleye-preprocessing\data\stimuli_MultiplEYE_zh_ch_Zurich_1_2025")
     lang = "zh"
     country = "ch"
     labnum = 1

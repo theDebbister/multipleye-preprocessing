@@ -1,1 +1,9 @@
 git+https://github.com/aeye-lab/pymovements@180d7e5f4535221a87fe9b8a44cfb1406231a0bc
+
+matplotlib~=3.8.4
+polars~=1.21.0
+pandas~=2.2.2
+numpy~=1.26.4
+tqdm~=4.66.4
+pillow==10.4.0
+fastexcel==0.12.0

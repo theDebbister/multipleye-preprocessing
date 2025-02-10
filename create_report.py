@@ -1,9 +1,9 @@
 """ creating a report based on the metadata of the asc experiment file. It includes quality mesuremntes based on threshold, specified in a config file """
 
-import pymovements as pm
 import argparse
 import configparser
 
+import pymovements as pm
 
 from_asc = pm.gaze.io.from_asc
 
@@ -17,7 +17,8 @@ def create_config(path):
                           'db_host': 'localhost', 'db_port': '5432'}
 
     config['validation'] = {'validation_score_avg': 0.3, 'validation_score_max': 0.7}
-    config['trial_duration'] =  {'start_timestamp': 897432.0, 'stop_timestamp': 897543.0,'duration_ms': 111.0, 'num_samples': 225}
+    config['trial_duration'] = {'start_timestamp': 897432.0, 'stop_timestamp': 897543.0, 'duration_ms': 111.0,
+                                'num_samples': 225}
 
     # Write the configuration to a file
     with open(path, 'w') as configfile:
@@ -53,6 +54,7 @@ def read_config(path):
 def create_report(file, config):
     _, metadata = from_asc(file)
 
+
 def parse_args():
     parser = argparse.ArgumentParser(description='create a quality check report of an asc experiment file')
     parser.add_argument(
@@ -78,6 +80,7 @@ def parse_args():
 
     return parser.parse_args()
 
+
 def main():
     args = parse_args()
     create_report(args.file_path, args.config)
@@ -88,4 +91,4 @@ if __name__ == "__main__":
     config_file_path = 'config.ini'
     filepath = "output/ch1hr007.asc"
     create_config(config_file_path)
-    #create_report(filepath, config)
+    # create_report(filepath, config)

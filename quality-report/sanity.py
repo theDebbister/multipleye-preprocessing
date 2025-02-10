@@ -1,12 +1,16 @@
-from pathlib import Path
-import polars as pl
-import pandas as pd
+import os
+import pickle
 import re
 from dataclasses import dataclass
-import os
+from pathlib import Path
+
+import pandas as pd
+import polars as pl
+
 from plot import load_data, preprocess
 from stimulus import load_stimuli
-import pickle
+
+
 @dataclass
 class Sanity:
     """Class for perfomring Sanity checks"""
@@ -29,6 +33,7 @@ class Sanity:
     completed_stimuli: pd.DataFrame
     stimuli_order: list
     gaze: pd.DataFrame = None
+
     def __post_init__(self):
         self.output_dir.mkdir(exist_ok=True)
         self.plot_dir.mkdir(exist_ok=True)
@@ -67,7 +72,7 @@ class Sanity:
                 f"{local_file_path}\quality-report\output\{vars_dict['data_coll_abr']}")
             print(len(str(output_dir)))
             output_dir.mkdir(exist_ok=True)
-            output_dir = output_dir/vars_dict['participant_abbr']
+            output_dir = output_dir / vars_dict['participant_abbr']
             output_dir.mkdir(exist_ok=True)
             plot_dir = Path(f"{output_dir}\{vars_dict['participant_abbr']}_plots")
             plot_dir.mkdir(exist_ok=True)
@@ -109,7 +114,6 @@ class Sanity:
         with open(report_file, "a", encoding="utf-8") as report_file:
             report_file.write(f"{message}\n")
 
-
     def get_frame(self):
 
         ### Create or load gaze dataframe from ASC file, with the provided lab configuration
@@ -134,7 +138,7 @@ class Sanity:
 def main():
     path_asc_file = "data\\017_NL_NL_1_ET1_testrun_1733144369\\017nlnl1.asc"
     # path_asc_file ="data\\016_NL_NL_1_ET1\\016nlnl1.asc"
-    path_asc_file= "data\\010_ZH_CH_1_ET1\\010zhch1.asc"
+    path_asc_file = "data\\010_ZH_CH_1_ET1\\010zhch1.asc"
     # path_asc_file = "data\\003_HR_HR_1_ET1\\003hrhr1.asc"
     local_file_part = "C:\\Users\saphi\PycharmProjects\multipleye-preprocessing"
     stimulus_file_path = "C:\\Users\saphi\PycharmProjects\multipleye-preprocessing\data\stimuli_MultiplEYE_NL_NL_Nijmegen_1_2024"
@@ -148,6 +152,7 @@ def main():
     print(sanity.asc_file)
     gaze = sanity.get_frame()
     print(gaze)
+
 
 if __name__ == "__main__":
     main()

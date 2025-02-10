@@ -3,12 +3,11 @@ import importlib
 import logging
 import math
 from functools import partial
-from glob import glob
 from pathlib import Path
 from typing import Any, Callable, TextIO, Union
 
-import matplotlib.pyplot as plt
 import PIL
+import matplotlib.pyplot as plt
 import polars as pl
 import pymovements as pm
 from matplotlib.patches import Circle
@@ -168,8 +167,9 @@ def check_metadata(metadata: dict[str, Any], report: ReportFunction) -> None:
     sampling_rate = metadata["sampling_rate"]
     report("Sampling rate",
            sampling_rate,
-    config.EXPECTED_SAMPLING_RATE,
+           config.EXPECTED_SAMPLING_RATE,
            )
+
 
 def check_gaze(gaze: pm.GazeDataFrame, report: ReportFunction) -> None:
     num_practice_trials = (
@@ -223,9 +223,9 @@ def check_events(events: pm.EventDataFrame, report: ReportFunction) -> None:
 
 def plot_gaze(gaze: pm.GazeDataFrame, stimulus_dir: Path, plots_dir: Path, ) -> None:
     for trial, stimulus, screen in (
-        gaze.frame.select(pl.col("trial"), pl.col("stimulus"), pl.col("screen"))
-        .unique()
-        .iter_rows()
+            gaze.frame.select(pl.col("trial"), pl.col("stimulus"), pl.col("screen"))
+                    .unique()
+                    .iter_rows()
     ):
         stimulus_genre, stimulus_name, stimulus_id = stimulus.split("_")
 
@@ -248,24 +248,24 @@ def plot_gaze(gaze: pm.GazeDataFrame, stimulus_dir: Path, plots_dir: Path, ) -> 
         fig, ax = plt.subplots()
         if screen.startswith("page_"):
             stimulus_image_path = (
-                stimulus_dir
-                / "stimuli_images_zh_ch_1"
-                / f"{stimulus_genre.lower()}_{stimulus_name.lower()}_id{stimulus_id}_{screen}_zh.png"
+                    stimulus_dir
+                    / "stimuli_images_zh_ch_1"
+                    / f"{stimulus_genre.lower()}_{stimulus_name.lower()}_id{stimulus_id}_{screen}_zh.png"
             )
         elif screen.startswith("question_"):
             question_id = int(screen.split("_")[1])
             version = 1  # TODO: Use the correct version (question/answer order) for this subject
             stimulus_image_path = (
-                stimulus_dir
-                / "question_images_zh_ch_1"
-                / f"question_images_version_{version}"
-                / f"{stimulus_genre}_{stimulus_name}_id{stimulus_id}_question_{question_id:05.0f}_zh.png"
+                    stimulus_dir
+                    / "question_images_zh_ch_1"
+                    / f"question_images_version_{version}"
+                    / f"{stimulus_genre}_{stimulus_name}_id{stimulus_id}_question_{question_id:05.0f}_zh.png"
             )
         else:
             stimulus_image_path = (
-                stimulus_dir
-                / f"participant_instructions_images_zh_ch_1"
-                / f"{screen}_zh.png"
+                    stimulus_dir
+                    / f"participant_instructions_images_zh_ch_1"
+                    / f"{screen}_zh.png"
             )
         stimulus_image = PIL.Image.open(stimulus_image_path)
         ax.imshow(stimulus_image)
@@ -297,16 +297,16 @@ def plot_main_sequence(events: pm.EventDataFrame, plots_dir: Path) -> None:
         events, show=False, savepath=plots_dir / "main_sequence.png"
     )
 
-
     # Filter out data outside of trials
 
+
 def report_to_file(
-    name: str,
-    values: Any,
-    acceptable_values: Any,
-    *,
-    report_file: TextIO,
-    percentage: bool = False,
+        name: str,
+        values: Any,
+        acceptable_values: Any,
+        *,
+        report_file: TextIO,
+        percentage: bool = False,
 ) -> None:
     if not isinstance(values, (list, tuple)):
         values = [values]

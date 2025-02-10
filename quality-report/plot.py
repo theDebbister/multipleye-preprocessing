@@ -1,17 +1,17 @@
 import argparse
-import importlib
 import math
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import PIL
+import matplotlib.pyplot as plt
 import polars as pl
 import pymovements as pm
 from matplotlib.patches import Circle
+
 from stimulus import LabConfig, Stimulus, load_stimuli
 
 
-def load_data(asc_file: Path, lab_config: LabConfig) -> pm.GazeDataFrame:
+def load_data(asc_file: Path, lab_config: LabConfig, session_idf: str = '') -> pm.GazeDataFrame:
     gaze = pm.gaze.from_asc(
         asc_file,
         patterns=[
@@ -48,6 +48,7 @@ def load_data(asc_file: Path, lab_config: LabConfig) -> pm.GazeDataFrame:
             {"pattern": r"stop_recording_", "column": "practice", "value": None},
         ],
         trial_columns=["trial", "stimulus", "screen"],
+        add_columns={'session': session_idf} if session_idf else None,
     )
 
     # Filter out data outside of trials
