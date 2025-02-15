@@ -87,7 +87,7 @@ as described in [MultiplEYE Experimenter Script - Eye-Tracking Session](https://
 Transfer (i.e., copy + paste) the complete data folder from experiment_implementation > data > eye_tracking_data_[LANGUAGE_CODE]_[COUNTRY_CODE]_[LAB_NUMBER] > core_dataset > folder name with participant ID to your password-protected SWITCHdrive folder and in that folder to the folder named eye-tracking-sessions.
 
 - MultiplEYE_[LANGUAGE_CODE]_[COUNTRY_CODE]_[City]_[Experiment_number]_[Year]
-  - stimuli_MultiplEYE_ET_EE_Tartu_1_2025
+  - stimuli_MultiplEYE_[LANGUAGE_CODE]_[COUNTRY_CODE]_[City]_[Experiment_number]_[Year]
   - eye-tracking-sessions
     - pilot_sessions
     - test_sessions
