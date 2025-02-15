@@ -70,6 +70,8 @@ class DataCollection:
                              f'Supported eye trackers are: '
                              f'{np.array([val for k, val in EYETRACKER_NAMES.items()]).flatten()}')
 
+
+
     def add_recorded_sessions(self,
                               data_root: Path,
                               session_folder_regex: str = '',
@@ -98,6 +100,7 @@ class DataCollection:
 
         # get a list of all folders in the data folder
         if session_folder_regex:
+
             for item in os.scandir(self.data_root):
                 if item.is_dir():
                     if re.match(session_folder_regex, item.name):
@@ -165,6 +168,7 @@ class DataCollection:
                 print(f'ASC file already exists for {session}.')
 
     def create_gaze_frame(self, session: str | list[str] = '', overwrite: bool = False) -> None:
+
         raise NotImplementedError
 
     def get_gaze_frame(self, session_identifier: str,

@@ -13,6 +13,7 @@ from functools import partial
 from data_collection import DataCollection
 from plot import load_data, preprocess
 from stimulus import load_stimuli, LabConfig, Stimulus
+import os
 
 
 class MultipleyeDataCollection(DataCollection):
@@ -37,18 +38,21 @@ class MultipleyeDataCollection(DataCollection):
         self.session_folder_regex = session_folder_regex
         self.stimuli = stimuli
 
+
         if not self.output_dir:
             self.output_dir = self.data_root.parent / 'quality_reports'
             self.output_dir.mkdir(exist_ok=True)
 
         self.add_recorded_sessions(self.data_root, self.session_folder_regex, convert_to_asc=True)
 
+
     @classmethod
-    def create_from_data_folder(cls, data_dir: str):
+    def create_from_data_folder(cls, data_dir: str, additional_folder: str = 'core_dataset') -> "MultipleyeDataCollection":
         data_dir = Path(data_dir)
 
         data_folder_name = data_dir.name
         _, stimulus_language, country, city, lab_number, year = data_folder_name.split('_')
+
 
         session_folder_regex = r"\d\d\d" + f"_{stimulus_language}_{country}_{lab_number}_ET1"
 
@@ -62,7 +66,7 @@ class MultipleyeDataCollection(DataCollection):
 
         eye_tracker = lab_configuration_data.name_eye_tracker
 
-        et_data_path = data_dir / 'eye-tracking-sessions'
+        et_data_path = data_dir / 'eye-tracking-sessions' / additional_folder #ToDo: implement it more general to adhere to multipleye folder structure
 
         return cls(
             data_collection_name=data_folder_name,
@@ -109,7 +113,11 @@ class MultipleyeDataCollection(DataCollection):
             if gaze_path.exists() and not overwrite:
                 # make sure gaze path is added if the pkl was created in a previous run
                 self.sessions[session_name]['gaze_path'] = gaze_path
+                print(f"Gaze data already exists for {session_name}.")
+
                 return
+
+            self.sessions[session_name]['gaze_path'] = gaze_path
 
             try:
                 gaze = load_data(Path(self.sessions[session_name]['asc_path']), self.lab_configuration,
@@ -130,11 +138,50 @@ class MultipleyeDataCollection(DataCollection):
             with open(gaze_path, "wb") as f:
                 pickle.dump(gaze, f)
 
+    def get_gaze_frame(self, session_identifier: str,
+                       create_if_not_exists: bool = False,
+                       ) -> GazeDataFrame:
+        """
+        Loads and possibly creates the gaze data for the specified session(s).
+        :param create_if_not_exists: The gaze data will be created and stored if True.
+        :param session_identifier: If (a) session identifier(s) is/are specified only the gaze data for this session is
+        loaded. Otherwise, the gaze data for all sessions is loaded.
+        :return:
+        """
+
+        if session_identifier not in self.sessions:
+            raise KeyError(f'Session {session_identifier} not found in {self.data_root}.')
+
+        try:
+            # check if pkl files are already available
+            gaze_path = Path(self.output_dir/ session_identifier).glob('*.pkl')
+
+            if len(list(gaze_path)) == 1:
+                gaze_path = Path(self.output_dir / session_identifier).glob('*.pkl')
+                gaze_path = list(gaze_path)[0]
+                self.sessions[session_identifier]['gaze_path'] = gaze_path
+                print(f'Found pkl file for {session_identifier}.')
+            else:
+                raise FileNotFoundError
+
+        except FileNotFoundError:
+            if create_if_not_exists:
+                self.create_gaze_frame(session=session_identifier)
+                gaze_path = self.sessions[session_identifier]['gaze_path']
+            else:
+                raise KeyError(f'Gaze frame not created for session {session_identifier}. Please create first.')
+
+        with open(gaze_path, "rb") as f:
+            gaze = pickle.load(f)
+
+        return gaze
+
     def create_sanity_check_report(self):
 
         for session_name, session in self.sessions.items():
-            report_file = open(self.output_dir / session_name / f"{session_name}_report.txt", "w", encoding="utf-8")
-            gaze = self.get_gaze_frame(session_name)
+
+            gaze = self.get_gaze_frame(session_name, create_if_not_exists=True)
+            report_file = open(self.output_dir / session_name / f"{session_name}_report.txt", "a+", encoding="utf-8")
             report = partial(report_meta, report_file=report_file)
             check_gaze(gaze, report)
             check_metadata(gaze._metadata, report)
@@ -155,5 +202,6 @@ if __name__ == '__main__':
     data_folder_path = this_repo / "data" / data_collection_folder
 
     multipleye = MultipleyeDataCollection.create_from_data_folder(str(data_folder_path))
-
-    multipleye.get_gaze_frame()
+    #multipleye.add_recorded_sessions(data_root= data_folder_path / 'eye-tracking-sessions' / 'core_dataset', convert_to_asc=False, session_folder_regex=r"005_ET_EE_1_ET1")
+    #multipleye.create_gaze_frame("005_ET_EE_1_ET1")
+    multipleye.create_sanity_check_report()

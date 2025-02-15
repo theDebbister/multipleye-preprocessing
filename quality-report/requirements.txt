@@ -1,4 +1,5 @@
-#git+https://github.com/aeye-lab/pymovements@20da09b714acb2190b00cb22a7eb532ff8b7ad49
+"git+https://github.com/aeye-lab/pymovements@20da09b714acb2190b00cb22a7eb532ff8b7ad49"
 pillow==10.4.0
 fastexcel==0.12.0
 pip
+git+https://github.com/aeye-lab/pymovements6cb32bd6a770839@16cb01afdeafc77b5584214a6
