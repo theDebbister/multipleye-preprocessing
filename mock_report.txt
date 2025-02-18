@@ -58,7 +58,7 @@ obligatory_break found 1 times
 obligatory_break_duration: lasting 391.90 seconds found at 5837635.0
 
 
-pen points:
+open points:
 
 automatic report:
     Number of Blinks can soon be implemented with pm, is kind of implemented already, but not reported yet
