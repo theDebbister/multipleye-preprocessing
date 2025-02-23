@@ -123,6 +123,7 @@ class DataCollection:
                             'session_file_path': session_file,
                             'session_file_name': session_file.name,
                             'session_folder_name': item.name,
+                            'session_stimuli': ''
                         }
 
                         # check if asc files are already available

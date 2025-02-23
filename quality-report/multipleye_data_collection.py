@@ -7,14 +7,14 @@ import polars as pl
 import pandas as pd
 from pymovements import GazeDataFrame
 from tqdm import tqdm
-from report import check_gaze, check_metadata, check_events, report_to_file as report_meta
+from report import check_gaze, check_metadata,report_to_file as report_meta
 from functools import partial
 
 from data_collection import DataCollection
 from plot import load_data, preprocess
 from stimulus import load_stimuli, LabConfig, Stimulus
 import os
-
+from formal_experiment_checks import check_all_screens_logfile
 
 class MultipleyeDataCollection(DataCollection):
 
@@ -176,15 +176,23 @@ class MultipleyeDataCollection(DataCollection):
 
         return gaze
 
-    def create_sanity_check_report(self):
+    def create_sanity_check_report(self, sessions: str | list[str] | None = None):
 
-        for session_name, session in self.sessions.items():
+        if not sessions:
+            sessions = (session_name for session_name, session in self.sessions.items())
+        elif isinstance(sessions, str):
+            sessions = [sessions]
+        elif isinstance(sessions, list):
+            sessions = sessions
+
+        for session_name in sessions:
 
             gaze = self.get_gaze_frame(session_name, create_if_not_exists=True)
             report_file = open(self.output_dir / session_name / f"{session_name}_report.txt", "a+", encoding="utf-8")
             report = partial(report_meta, report_file=report_file)
-            check_gaze(gaze, report)
-            check_metadata(gaze._metadata, report)
+            #check_gaze(gaze, report)
+            #check_metadata(gaze._metadata, report)
+            self.check_logfiles(session_name)
 
             # TODO: implement the following functions in this class
             # check_all_screens_logfile(sanity.logfile, stimuli)
@@ -192,6 +200,41 @@ class MultipleyeDataCollection(DataCollection):
             # check_instructions(messages, stimuli, sanity)
 
             report_file.close()
+
+
+    def check_logfiles(self, session_identifier):
+        """
+        Check the logfile for the specified session.
+        :param session_identifier: The session identifier.
+        :return:
+        """
+        logfile, completed_stimuli, stimuli_order = self._load_logfile(session_identifier)
+        report_file = self.output_dir / session_identifier / f"{session_identifier}_report.txt"
+        check_all_screens_logfile(logfile, self.stimuli, report_file)
+        report_file.close()
+
+    def _load_logfile(self, session_identifier):
+        """
+        Load the logfile for the specified session.
+        :param session_identifier: The session identifier.
+        :return: The logfile as a polars DataFrame, the completed stimuli and the stimuli order.
+        """
+        logfilepath = Path(f'{session_identifier}/logfiles')
+        logfile = logfilepath.glob("EXPERIMENT_*.txt")
+        stim_path = logfilepath / 'completed_stimuli.csv'
+
+        for log in logfile:
+            logfile = pl.read_csv(log, separator="\t")
+        completed_stimuli = pl.read_csv(stim_path, separator=","),
+        stimuli_order = pl.read_csv(logfilepath / f"completed_stimuli.csv", separator=",")[
+            "stimulus_id"].to_list()
+        return logfile, completed_stimuli, stimuli_order
+
+
+    def _report_to_file(message: str, report_file: Path):
+        assert isinstance(report_file, Path)
+        with open(report_file, "a", encoding="utf-8") as report_file:
+            report_file.write(f"{message}\n")
 
 
 if __name__ == '__main__':
@@ -204,4 +247,4 @@ if __name__ == '__main__':
     multipleye = MultipleyeDataCollection.create_from_data_folder(str(data_folder_path))
     #multipleye.add_recorded_sessions(data_root= data_folder_path / 'eye-tracking-sessions' / 'core_dataset', convert_to_asc=False, session_folder_regex=r"005_ET_EE_1_ET1")
     #multipleye.create_gaze_frame("005_ET_EE_1_ET1")
-    multipleye.create_sanity_check_report()
+    multipleye.create_sanity_check_report(["005_ET_EE_1_ET1", "006_ET_EE_1_ET1"])
