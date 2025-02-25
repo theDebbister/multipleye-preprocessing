@@ -14,7 +14,7 @@ from data_collection import DataCollection
 from plot import load_data, preprocess
 from stimulus import load_stimuli, LabConfig, Stimulus
 import os
-from formal_experiment_checks import check_all_screens_logfile
+from formal_experiment_checks import check_all_screens_logfile, check_all_screens, check_instructions
 
 class MultipleyeDataCollection(DataCollection):
 
@@ -196,7 +196,7 @@ class MultipleyeDataCollection(DataCollection):
 
             # TODO: implement the following functions in this class
             # check_all_screens_logfile(sanity.logfile, stimuli)
-            # check_validations(gaze, messages)
+            check_validations(gaze, messages)
             # check_instructions(messages, stimuli, sanity)
 
             report_file.close()
@@ -211,7 +211,8 @@ class MultipleyeDataCollection(DataCollection):
         logfile, completed_stimuli, stimuli_order = self._load_logfile(session_identifier)
         report_file = self.output_dir / session_identifier / f"{session_identifier}_report.txt"
         check_all_screens_logfile(logfile, self.stimuli, report_file)
-        report_file.close()
+
+
 
     def _load_logfile(self, session_identifier):
         """
@@ -219,14 +220,16 @@ class MultipleyeDataCollection(DataCollection):
         :param session_identifier: The session identifier.
         :return: The logfile as a polars DataFrame, the completed stimuli and the stimuli order.
         """
-        logfilepath = Path(f'{session_identifier}/logfiles')
+        logfilepath = Path(f'{self.data_root}/{session_identifier}/logfiles')
+
+        assert logfilepath.exists(), f"Logfile path {logfilepath} does not exist."
         logfile = logfilepath.glob("EXPERIMENT_*.txt")
         stim_path = logfilepath / 'completed_stimuli.csv'
 
         for log in logfile:
             logfile = pl.read_csv(log, separator="\t")
         completed_stimuli = pl.read_csv(stim_path, separator=","),
-        stimuli_order = pl.read_csv(logfilepath / f"completed_stimuli.csv", separator=",")[
+        stimuli_order = pl.read_csv(stim_path, separator=",")[
             "stimulus_id"].to_list()
         return logfile, completed_stimuli, stimuli_order
 
