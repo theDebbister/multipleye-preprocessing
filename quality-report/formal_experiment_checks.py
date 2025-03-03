@@ -1,15 +1,17 @@
 import polars as pl
 from pathlib import Path
 from stimulus import Stimulus
+
+
 def _report_to_file(message: str, report_file: Path):
     assert isinstance(report_file, Path)
     with open(report_file, "a", encoding="utf-8") as report_file:
         report_file.write(f"{message}\n")
 
 
-def check_all_screens_logfile(logfile: pl, stimuli: Stimulus, report_file: Path =None):
+def check_all_screens_logfile(logfile: pl, stimuli: Stimulus, report_file: Path = None):
     """ checking if all screens, where ET data is tracked are present in the log file
-    params: logfile as plolars
+    params: logfile as polars
     returns nothing"""
     for stimulus in stimuli:
         print(f"Checking {stimulus.name} in Logfile")
@@ -37,7 +39,7 @@ def check_all_screens_logfile(logfile: pl, stimuli: Stimulus, report_file: Path 
             if f"{rating.name}" not in stimulus_frame["page_number"].to_list():
                 print(f"{stimulus.name}: Missing rating screen {rating.name}")
                 _report_to_file(f"{stimulus.name}: Missing rating screen {rating.name} in Logfile",
-                                      report_file)
+                                report_file)
 
 
 def check_all_screens(gaze, stimuli, report_file):
@@ -70,9 +72,8 @@ def check_all_screens(gaze, stimuli, report_file):
                 print(f"Rating {rating.name} screens found")
 
 
-
 # check order in ASC file based on messages
-def check_instructions(messages: list, stimuli: Stimulus):
+def check_instructions(messages: list, stimuli: Stimulus, report_file: Path):
     messages_only = [d.get('message') for d in messages]
     one_time_screens = ['welcome_screen', 'informed_consent_screen', 'start_experiment', 'stimulus_order_version',
                         'showing_instruction_screen_1', 'showing_instruction_screen_2', 'showing_instruction_screen_3',
@@ -91,7 +92,7 @@ def check_instructions(messages: list, stimuli: Stimulus):
     reoccuring_screens = ['showing_subject_difficulty_screen', 'showing_familiarity_rating_screen_1',
                           'showing_familiarity_rating_screen_2']
 
-    def _check_validation_screen(last_index, index_next_stimulus, report_file):
+    def _check_validation_screen(last_index, index_next_stimulus):
         # print(last_index, index_next_stimulus)
         if "validation_before_stimulus" not in messages_only[
                                                last_index:index_next_stimulus] and "final_validation" not in messages_only[
@@ -239,5 +240,3 @@ def check_instructions(messages: list, stimuli: Stimulus):
                 msg = messages[index]
                 sanity.report_to_file(f"{msg['message']} found at {msg['timestamp']}", sanity.report_file)
                 print(f"{msg['message']} found at {msg['timestamp']}")
-
-
