@@ -162,7 +162,7 @@ def check_metadata(metadata: dict[str, Any], report: ReportFunction) -> None:
     total_recording_duration = metadata["total_recording_duration_ms"] / 60000
     report(
         "Total recording duration",
-        total_recording_duration,
+        f"{total_recording_duration:.2f} min",
         config.ACCEPTABLE_RECORDING_DURATIONS,
     )
     sampling_rate = metadata["sampling_rate"]
