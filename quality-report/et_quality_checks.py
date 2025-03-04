@@ -10,11 +10,13 @@ from matplotlib.patches import Circle
 import re
 from stimulus import LabConfig, Stimulus, load_stimuli
 import os
+import logging
 
 def _report_to_file(message: str, report_file: Path):
     assert isinstance(report_file, Path)
     with open(report_file, "a", encoding="utf-8") as report_file:
         report_file.write(f"{message}\n")
+    logging.info(message)
 
 
 def check_validations(gaze, messages, report_file):
@@ -22,7 +24,7 @@ def check_validations(gaze, messages, report_file):
         if validation["validation_score_avg"] < "0.305":
             continue
         else:
-            print(validation["validation_score_avg"], validation["timestamp"])
+            # print(validation["validation_score_avg"], validation["timestamp"])
             bad_val_timestamp = float(validation["timestamp"])
             found_val = False
 
@@ -34,8 +36,7 @@ def check_validations(gaze, messages, report_file):
                 index_bad_val = gaze._metadata["validations"].index(validation)
                 next_validation = gaze._metadata['validations'][index_bad_val + 1]
                 time_between = round((float(next_validation["timestamp"]) - bad_val_timestamp) / 1000, 3)
-                print(
-                    f"next validation, {time_between} seconds later with score {next_validation['validation_score_avg']}")
+                # print(f"next validation, {time_between} seconds later with score {next_validation['validation_score_avg']}")
                 _report_to_file(
                     f"Calibration after validation at timestamp {cal['timestamp']}.   Next validation, {time_between} seconds later with score {next_validation['validation_score_avg']}",
                     report_file)

@@ -3,8 +3,9 @@ import pickle
 from pathlib import Path
 from pprint import pprint
 import polars as pl
-
+import re
 import pandas as pd
+import logging
 from pymovements import GazeDataFrame
 from tqdm import tqdm
 from report import check_gaze, check_metadata,report_to_file as report_meta
@@ -15,6 +16,8 @@ from plot import load_data, preprocess
 from stimulus import load_stimuli, LabConfig, Stimulus
 import os
 from formal_experiment_checks import check_all_screens_logfile, check_all_screens, check_instructions
+from et_quality_checks import check_validations, plot_gaze, plot_main_sequence
+
 
 class MultipleyeDataCollection(DataCollection):
 
@@ -44,7 +47,7 @@ class MultipleyeDataCollection(DataCollection):
             self.output_dir.mkdir(exist_ok=True)
 
         self.add_recorded_sessions(self.data_root, self.session_folder_regex, convert_to_asc=True)
-
+        logging.basicConfig()
 
     @classmethod
     def create_from_data_folder(cls, data_dir: str, additional_folder: str = 'core_dataset') -> "MultipleyeDataCollection":
@@ -103,8 +106,8 @@ class MultipleyeDataCollection(DataCollection):
             session_keys = self.sessions.keys()
 
         for session_name in tqdm(session_keys, desc="Creating gaze data"):
-            gaze_path = self.output_dir / session
-            print(gaze_path)
+            gaze_path = self.output_dir / session_name
+
             # / f"{session_name}_gaze.pkl"
             gaze_path.mkdir(parents=True, exist_ok=True)
 
@@ -113,7 +116,7 @@ class MultipleyeDataCollection(DataCollection):
             if gaze_path.exists() and not overwrite:
                 # make sure gaze path is added if the pkl was created in a previous run
                 self.sessions[session_name]['gaze_path'] = gaze_path
-                print(f"Gaze data already exists for {session_name}.")
+                logging.debug(f"Gaze data already exists for {session_name}.")
 
                 return
 
@@ -128,6 +131,8 @@ class MultipleyeDataCollection(DataCollection):
             except FileNotFoundError:
                 raise FileNotFoundError(
                     f"No asc file found for session {session_name}. Please create first.")
+
+            logging.warning(f"Preprocessing gaze data for {session_name}. This might take a while.")
 
             preprocess(gaze)
             # save and load the gaze dataframe to pickle for later usage
@@ -185,21 +190,25 @@ class MultipleyeDataCollection(DataCollection):
         elif isinstance(sessions, list):
             sessions = sessions
 
-        for session_name in sessions:
+        for session_name in tqdm(sessions, desc=f"performing sanity checks"):
 
             gaze = self.get_gaze_frame(session_name, create_if_not_exists=True)
             report_file = open(self.output_dir / session_name / f"{session_name}_report.txt", "a+", encoding="utf-8")
+
             report = partial(report_meta, report_file=report_file)
+            self.sessions[session_name]['report_file'] = report_file
+            self.load_logfiles(session_name)
             #check_gaze(gaze, report)
-            #check_metadata(gaze._metadata, report)
-            self.check_logfiles(session_name)
-
-            # TODO: implement the following functions in this class
-            # check_all_screens_logfile(sanity.logfile, stimuli)
-            check_validations(gaze, messages)
-            # check_instructions(messages, stimuli, sanity)
-
+            check_metadata(gaze._metadata, report)
             report_file.close()
+
+
+            self.check_logfiles(session_name)
+            self.check_asc_all_screens(session_name, gaze)
+            self.check_asc_instructions(session_name)
+            self.check_asc_validation(session_name, gaze)
+            self.create_plots(session_name, gaze)
+
 
 
     def check_logfiles(self, session_identifier):
@@ -208,13 +217,45 @@ class MultipleyeDataCollection(DataCollection):
         :param session_identifier: The session identifier.
         :return:
         """
-        logfile, completed_stimuli, stimuli_order = self._load_logfile(session_identifier)
+
         report_file = self.output_dir / session_identifier / f"{session_identifier}_report.txt"
-        check_all_screens_logfile(logfile, self.stimuli, report_file)
+        check_all_screens_logfile(self.sessions[session_identifier]["logfile"], self.stimuli, report_file)
+
+
+    def create_plots(self, session_identifier, gaze=None):
+
+        logging.info(f" creating plots for {session_identifier}.")
+
+        if not gaze:
+            logging.debug(f"Loading gaze data for {session_identifier}.")
+            gaze = self.get_gaze_frame(session_identifier, create_if_not_exists=True)
+
+        plot_dir = self.output_dir / session_identifier / f"{session_identifier}_plots"
+        plot_dir.mkdir(exist_ok=True)
+
+        plot_main_sequence(gaze.events, plot_dir)
+
+        for stimulus in self.stimuli:
+            logging.debug(f"Creating plots for {stimulus.name}.")
+            plot_gaze(gaze, stimulus, plot_dir)
 
 
 
-    def _load_logfile(self, session_identifier):
+    def check_asc_instructions(self, session_identifier):
+        """
+        Check the instructions for the specified session.
+        :param messages: The messages for the session.
+        :param stimuli: The stimuli for the session.
+        :param report_file: The report file.
+        :return:
+        """
+        logging.debug(f"Checking asc file for {session_identifier} instructions.")
+        messages = self._load_messages_for_experimenter_checks(session_identifier)
+        report_file = self.output_dir / session_identifier / f"{session_identifier}_report.txt"
+        check_instructions(messages, self.stimuli, report_file, self.sessions[session_identifier]["stimuli_order"])
+
+
+    def load_logfiles(self, session_identifier):
         """
         Load the logfile for the specified session.
         :param session_identifier: The session identifier.
@@ -231,16 +272,68 @@ class MultipleyeDataCollection(DataCollection):
         completed_stimuli = pl.read_csv(stim_path, separator=","),
         stimuli_order = pl.read_csv(stim_path, separator=",")[
             "stimulus_id"].to_list()
-        return logfile, completed_stimuli, stimuli_order
+
+        self.sessions[session_identifier]['logfile'] = logfile
+        self.sessions[session_identifier]['completed_stimuli'] = completed_stimuli
+        self.sessions[session_identifier]['stimuli_order'] = stimuli_order
+        #return logfile, completed_stimuli, stimuli_order
 
 
     def _report_to_file(message: str, report_file: Path):
         assert isinstance(report_file, Path)
         with open(report_file, "a", encoding="utf-8") as report_file:
             report_file.write(f"{message}\n")
+        # logging.info(message)
+
+    def _load_messages_for_experimenter_checks(self, session_identifier: str):
+        """
+       qick fix for now, should be replaced by the summary experiment frame later on
+        """
+        REGEX = r'MSG\s+(?P<timestamp>\d+[.]?\d*)\s+(?P<message>.*)'
+        asc_file = self.sessions[session_identifier]['asc_path']
+        with open(asc_file, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        messages = []
+        for line in lines:
+            match = re.match(REGEX, line)
+            if match:
+                messages.append(match.groupdict())
+        return messages
+
+
+    def check_asc_validation(self, session_identifier, gaze=None):
+        """
+        Check the asc file for the specified session.
+        :param session_identifier: The session identifier.
+        :return:
+        """
+        logging.debug(f"Checking Validation for {session_identifier}.")
+        messages = self._load_messages_for_experimenter_checks(session_identifier)
+        if not messages:
+            logging.error(f"No messages found in {session_identifier}.")
+        if not gaze:
+            logging.debug(f"Loading gaze data for {session_identifier}.")
+            gaze = self.get_gaze_frame(session_identifier, create_if_not_exists=True)
+
+        report_file = self.output_dir / session_identifier / f"{session_identifier}_report.txt"
+        check_validations(gaze, messages, report_file)
+
+    def check_asc_all_screens(self, session_identifier, gaze=None):
+        """
+        """
+        logging.debug(f"Checking asc file all screens for {session_identifier} all screens.")
+
+        if not gaze:
+            logging.debug(f"Loading gaze data for {session_identifier}.")
+            gaze = self.get_gaze_frame(session_identifier, create_if_not_exists=True)
+
+        report_file = self.output_dir / session_identifier / f"{session_identifier}_report.txt"
+        check_all_screens(gaze, self.stimuli, report_file)
+
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
     data_collection_folder = 'MultiplEYE_ET_EE_Tartu_1_2025'
 
     this_repo = Path().resolve().parent

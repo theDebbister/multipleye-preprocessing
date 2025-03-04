@@ -310,7 +310,7 @@ def report_to_file(
 ) -> None:
     if not isinstance(values, (list, tuple)):
         values = [values]
-    result = "❌"
+    result = ""
 
     if isinstance(acceptable_values, list):  # List of acceptable values
         if all(value in acceptable_values for value in values):
