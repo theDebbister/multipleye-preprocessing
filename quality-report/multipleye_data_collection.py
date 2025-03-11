@@ -165,7 +165,7 @@ class MultipleyeDataCollection(DataCollection):
                 gaze_path = Path(self.output_dir / session_identifier).glob('*.pkl')
                 gaze_path = list(gaze_path)[0]
                 self.sessions[session_identifier]['gaze_path'] = gaze_path
-                print(f'Found pkl file for {session_identifier}.')
+                logging.debug(f'Found pkl file for {session_identifier}.')
             else:
                 raise FileNotFoundError
 
@@ -181,7 +181,7 @@ class MultipleyeDataCollection(DataCollection):
 
         return gaze
 
-    def create_sanity_check_report(self, sessions: str | list[str] | None = None):
+    def create_sanity_check_report(self, sessions: str | list[str] | None = None, plotting: bool = True):
 
         if not sessions:
             sessions = (session_name for session_name, session in self.sessions.items())
@@ -207,7 +207,8 @@ class MultipleyeDataCollection(DataCollection):
             self.check_asc_all_screens(session_name, gaze)
             self.check_asc_instructions(session_name)
             self.check_asc_validation(session_name, gaze)
-            self.create_plots(session_name, gaze)
+            if plotting:
+                self.create_plots(session_name, gaze)
 
 
 

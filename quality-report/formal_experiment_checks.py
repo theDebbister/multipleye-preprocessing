@@ -11,16 +11,19 @@ def _report_warning(message: str, report_file: Path):
         report_file.write(f"{message}\n")
     logging.warning(message)
 
+
 def _report_information(message: str, report_file: Path):
     assert isinstance(report_file, Path)
     with open(report_file, "a", encoding="utf-8") as report_file:
         report_file.write(f"{message}\n")
     logging.info(message)
 
-def check_all_screens_logfile(logfile: pl, stimuli: Stimulus, report_file: Path = None):
+
+def check_all_screens_logfile(logfile: pl, stimuli: Stimulus | list[Stimulus], report_file: Path = None):
     """ checking if all screens, where ET data is tracked are present in the log file
     params: logfile as polars
     returns nothing"""
+
     for stimulus in stimuli:
         # print(f"Checking {stimulus.name} in Logfile")
         trial_id = logfile.filter((pl.col("stimulus_number") == f"{stimulus.id}")).item(0,
@@ -62,14 +65,14 @@ def check_all_screens(gaze, stimuli, report_file):
         # check if all pages are present
         for page in stimulus.pages:
             if f"page_{page.number}" not in stimulus_frame["screen"].to_list():
-                print(f"Missing page {page.number}")
+               # print(f"Missing page {page.number}")
                 _report_warning(f"Missing page {page.number} in asc file", report_file)
         # check if all questions are present
         for question in stimulus.questions:
             if f"question_{question.id}" not in stimulus_frame[
                 "screen"].to_list() and f"question_{question.id[1:]}" not in stimulus_frame["screen"].to_list():
                 _report_warning(f"Missing question_{question.id} in asc file", report_file)
-                print(stimulus_frame["screen"])
+               # print(stimulus_frame["screen"])
 
         for rating in stimulus.ratings:
             if f"{rating.name}" not in stimulus_frame["screen"].to_list():
@@ -92,7 +95,8 @@ def check_instructions(messages: list, stimuli: Stimulus | list, report_file: Pa
                         'start_recording_PRACTICE_trial_1_stimulus_Enc_WikiMoon_13_page_2',
                         'start_recording_PRACTICE_trial_2_stimulus_Lit_NorthWind_7_page_1',
                         'stop_recording_PRACTICE_trial_2_stimulus_Lit_NorthWind_7_page_1', 'transition_screen',
-                        'final_validation', 'show_final_screen', 'obligatory_break', 'obligatory_break_end']
+                        'final_validation', 'show_final_screen', 'obligatory_break', 'obligatory_break_end',
+                        'recalibration']
     optional_screens = ['empty_screen', 'optional_break_screen', 'fixation_trigger:skipped_by_experimenter',
                         'fixation_trigger:experimenter_calibration_triggered', 'optional_break',
                         'optional_break_duration', 'obligatory_break']
@@ -105,23 +109,25 @@ def check_instructions(messages: list, stimuli: Stimulus | list, report_file: Pa
                                                last_index:index_next_stimulus] and "final_validation" not in messages_only[
                                                                                                              last_index:index_next_stimulus]:
             # print(f"{stimulus.name}: Missing validation screen")
-            _report_warning(f"{stimulus.name}: Missing validation screen in asc file", report_file)
+            _report_warning(f"{stimulus.name}: Missing validation_before_stimulus screen in asc file", report_file)
         # else:
         #  print(f"{stimulus.name}: Validation screen found")
         #  val_index = [msg.get("message") for msg in messages[last_index:index_next_stimulus]].index("validation_before_stimulus")
         # val_timestamp =messages[last_index:index_next_stimulus][val_index].get("timestamp")
         # print("val_timestamp:", val_timestamp)
 
-    def _get_stimulus(id, next_id=None):
-        right_stimulus = None
+    def _get_stimulus(id, next_id=None, stimuli=stimuli):
+        current_stimulus = None
         next_stimulus = None
         for stimulus in stimuli:
             if stimulus.id == id:
-                right_stimulus = stimulus
+                current_stimulus = stimulus
             if stimulus.id == next_id:
                 next_stimulus = stimulus
 
-        return right_stimulus, next_stimulus
+        if not current_stimulus:
+            raise ValueError(f"Stimulus with id {id} not found")
+        return current_stimulus, next_stimulus
 
     def _check_instruction_screens(last_index, index_next_stimulus):
         for instruction in reoccuring_screens:
@@ -198,7 +204,6 @@ def check_instructions(messages: list, stimuli: Stimulus | list, report_file: Pa
                 if current_pattern not in messages_only[last_index:index_next_stimulus]:
                     _report_warning(f"{stimulus.name}: Missing {current_pattern} Messages in ASC file", report_file)
 
-
         _check_validation_screen(last_index, index_next_stimulus)
 
     for trial, id in enumerate(
@@ -239,11 +244,11 @@ def check_instructions(messages: list, stimuli: Stimulus | list, report_file: Pa
                 text = msg['message'].split(' ', )[0]
                 duration = float(msg['message'].split(' ', )[1]) / 1000
                 _report_information(f"{text} lasting {duration:.2f} seconds found at {msg['timestamp']}",
-                                report_file)
-                #print(f"{text} lasting {duration:.2f} seconds found at {msg['timestamp']}")
+                                    report_file)
+                # print(f"{text} lasting {duration:.2f} seconds found at {msg['timestamp']}")
 
 
             else:
                 msg = messages[index]
                 _report_information(f"{msg['message']} found at {msg['timestamp']}", report_file)
-                #print(f"{msg['message']} found at {msg['timestamp']}")
+                # print(f"{msg['message']} found at {msg['timestamp']}")

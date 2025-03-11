@@ -1,16 +1,19 @@
-import argparse
 import math
 from pathlib import Path
-import pandas as pd
+import math
+import os
+import re
+from pathlib import Path
+import logging
 import PIL
 import matplotlib.pyplot as plt
+import pandas as pd
 import polars as pl
 import pymovements as pm
 from matplotlib.patches import Circle
-import re
-from stimulus import LabConfig, Stimulus, load_stimuli
-import os
-import logging
+
+from stimulus import Stimulus
+
 
 def _report_to_file(message: str, report_file: Path):
     assert isinstance(report_file, Path)
@@ -20,8 +23,10 @@ def _report_to_file(message: str, report_file: Path):
 
 
 def check_validations(gaze, messages, report_file):
+
     for num, validation in enumerate(gaze._metadata["validations"]):
         if validation["validation_score_avg"] < "0.305":
+            # print(f"Validation score {validation['validation_score_avg']} too low")
             continue
         else:
             # print(validation["validation_score_avg"], validation["timestamp"])
@@ -42,7 +47,7 @@ def check_validations(gaze, messages, report_file):
                     report_file)
                 found_val = True
         if not found_val:
-            print(f"No calibration after validation  score {validation['validation_score_avg']}")
+            # print(f"No calibration after validation  score {validation['validation_score_avg']}")
             _report_to_file(
                 f"No calibration after validation {num + 1}/{len(gaze._metadata['validations'])} at {bad_val_timestamp} with validation score {validation['validation_score_avg']}",
                 report_file)
