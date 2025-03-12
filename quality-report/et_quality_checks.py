@@ -22,8 +22,31 @@ def _report_to_file(message: str, report_file: Path):
     logging.info(message)
 
 
-def check_validations(gaze, messages, report_file):
+def check_comprehension_question_answers(logfile: pl, stimuli: Stimulus | list[Stimulus], report_file: Path = None):
+    """ compute the number of correct answers for each participant
+        params: logfile as polars
+        returns nothing"""
+    overall_correct_answers = 0
+    overall_answers = 0
+    for stimulus in stimuli:
+        if stimulus.type == "practice":
+            continue
+        # print(f"Checking {stimulus.name} in Logfile")
+        trial_id = logfile.filter((pl.col("stimulus_number") == f"{stimulus.id}")).item(0,
+                                                                                        "trial_number")  # get the trial number for the stimulus as ratingscreens don't have an entry in the stimulus_number column
 
+        stimulus_frame = logfile.filter(
+            (pl.col("trial_number") == f"{trial_id}")
+        )
+        answers = stimulus_frame.filter(pl.col("message").str.contains("FINAL ANSWER") == True)
+        correct_answers = stimulus_frame.filter(pl.col("message").str.contains("True") == True)
+        overall_correct_answers += len(correct_answers)
+        overall_answers += len(answers)
+        _report_to_file(f"Correct answers for {stimulus.name}: {len(correct_answers)} out of {len(answers)} answers", report_file)
+
+    _report_to_file(f"Overall correct answers: {overall_correct_answers} out of {overall_answers} answers {overall_correct_answers/overall_answers:.2f}", report_file)
+
+def check_validations(gaze, messages, report_file):
     for num, validation in enumerate(gaze._metadata["validations"]):
         if validation["validation_score_avg"] < "0.305":
             # print(f"Validation score {validation['validation_score_avg']} too low")
@@ -51,7 +74,6 @@ def check_validations(gaze, messages, report_file):
             _report_to_file(
                 f"No calibration after validation {num + 1}/{len(gaze._metadata['validations'])} at {bad_val_timestamp} with validation score {validation['validation_score_avg']}",
                 report_file)
-
 
 
 def plot_gaze(gaze: pm.GazeDataFrame, stimulus: Stimulus, plots_dir: Path) -> None:
@@ -210,12 +232,12 @@ def plot_main_sequence(events: pm.EventDataFrame, plots_dir: Path) -> None:
     )
 
 
-
 def analyse_asc(asc_file: str,
-                session: str ,
+                session: str,
                 initial_ts: int | None,
                 lab: str,
-                stimuli_trial_mapping: dict):
+                #completed_stimuli: str
+                stimuli_trial_mapping: dict[str, str]):
     start_ts = []
     stop_ts = []
     start_msg = []
@@ -227,10 +249,11 @@ def analyse_asc(asc_file: str,
     status = []
     stimulus_name = []
 
-    parent_folder = Path(__file__).parent.parent
-    asc_file = parent_folder / asc_file
-    output_dir = asc_file.parent/ 'reading_times'
+    output_dir = Path("C://Users/saphi/PycharmProjects/multipleye-preprocessing/quality-report/output") / 'reading_times'
     output_dir.mkdir(exist_ok=True)
+
+    #stimuli_trial_mapping = {k: v for k, v in stimuli_trial_mapping.items()}
+
     with open(asc_file, 'r', encoding='utf8') as f:
 
         start_regex = re.compile(
@@ -300,14 +323,14 @@ def analyse_asc(asc_file: str,
         'duration-hh:mm:ss': duration_str
     })
 
-    df.to_csv(output_dir/ f'times_per_page_pilot_{session}.tsv', sep='\t', index=False,)
+    df.to_csv(output_dir / f'times_per_page_pilot_{session}.tsv', sep='\t', index=False, )
 
     sum_df = df[['stimulus', 'trial', 'type', 'duration_ms']].dropna()
     sum_df['duration_ms'] = sum_df['duration_ms'].astype(float)
     sum_df = sum_df.groupby(by=['stimulus', 'trial', 'type']).sum().reset_index()
     duration = sum_df['duration_ms'].apply(lambda x: convert_to_time_str(x))
     sum_df['duration-hh:mm:ss'] = duration
-    sum_df.to_csv(output_dir/ f'times_per_page_pilot_{session}.tsv', index=False, sep='\t')
+    sum_df.to_csv(output_dir / f'times_per_page_pilot_{session}.tsv', index=False, sep='\t')
 
     print('Total exp time: ', convert_to_time_str(total_reading_duration_ms + total_set_up_time_ms))
     print('\n')
@@ -323,15 +346,15 @@ def analyse_asc(asc_file: str,
         'total_non-reading_time': [convert_to_time_str(total_set_up_time_ms)],
         'total_exp_time': [convert_to_time_str(total_reading_duration_ms + total_set_up_time_ms)]
     })
-    if os.path.exists(output_dir/ f'total_times.tsv'):
-        temp_total_times = pd.read_csv('reading_times/total_times.tsv', sep='\t')
+    if os.path.exists(output_dir / f'total_times.tsv'):
+        temp_total_times = pd.read_csv(output_dir / 'total_times.tsv', sep='\t')
         total_times = pd.concat([temp_total_times, total_times], ignore_index=True)
 
-    total_times.to_csv('reading_times/total_times.tsv', sep='\t', index=False)
+    total_times.to_csv(output_dir / 'total_times.tsv', sep='\t', index=False)
 
-    total_times.to_excel('reading_times/total_times.xlsx', index=False)
-    sum_df.to_excel(f'reading_times/times_per_trial_pilot_{session}.xlsx', index=False)
-    df.to_excel(f'reading_times/times_per_page_pilot_{session}.xlsx', index=False)
+#    total_times.to_excel(output_dir / 'total_times.xlsx', index=False)
+ #   sum_df.to_excel(output_dir / f'times_per_trial_pilot_{session}.xlsx', index=False)
+  #  df.to_excel(output_dir / f'times_per_page_pilot_{session}.xlsx', index=False)
 
 
 def convert_to_time_str(duration_ms: float) -> str:
@@ -343,12 +366,11 @@ def convert_to_time_str(duration_ms: float) -> str:
 
 
 if __name__ == '__main__':
-
     analyse_asc(
-        "C:\\Users\saphi\PycharmProjects\multipleye-preprocessing\data\MultiplEYE_ET_EE_Tartu_1_2025\eye-tracking-sessions\core_dataset\\006_ET_EE_1_ET1\\006etee1.asc",
+        Path("C:\\Users\saphi\PycharmProjects\multipleye-preprocessing\data\MultiplEYE_ET_EE_Tartu_1_2025\eye-tracking-sessions\core_dataset\\006_ET_EE_1_ET1\\006etee1.asc"),
         session="006",
         lab='et',
-        initial_ts=14556585,
+        initial_ts=None,
         stimuli_trial_mapping={
             'PRACTICE_trial_1': 'Enc_WikiMoon',
             'PRACTICE_trial_2': 'Lit_NorthWind',

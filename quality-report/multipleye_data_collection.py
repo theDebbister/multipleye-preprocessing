@@ -16,7 +16,7 @@ from plot import load_data, preprocess
 from stimulus import load_stimuli, LabConfig, Stimulus
 import os
 from formal_experiment_checks import check_all_screens_logfile, check_all_screens, check_instructions
-from et_quality_checks import check_validations, plot_gaze, plot_main_sequence
+from et_quality_checks import check_validations, plot_gaze, plot_main_sequence, check_comprehension_question_answers
 
 
 class MultipleyeDataCollection(DataCollection):
@@ -220,7 +220,9 @@ class MultipleyeDataCollection(DataCollection):
         """
 
         report_file = self.output_dir / session_identifier / f"{session_identifier}_report.txt"
+        check_comprehension_question_answers(self.sessions[session_identifier]["logfile"], self.stimuli, report_file)
         check_all_screens_logfile(self.sessions[session_identifier]["logfile"], self.stimuli, report_file)
+
 
 
     def create_plots(self, session_identifier, gaze=None):
@@ -331,6 +333,19 @@ class MultipleyeDataCollection(DataCollection):
         report_file = self.output_dir / session_identifier / f"{session_identifier}_report.txt"
         check_all_screens(gaze, self.stimuli, report_file)
 
+    def create_experiment_frame(self, session_identifier):
+        """
+        Create the experiment frame for the specified session.
+        :param session_identifier: The session identifier.
+        :return:
+        """
+        logging.debug(f"Creating experiment frame for {session_identifier}.")
+        self.load_logfiles(session_identifier)
+
+        logfile = self.sessions[session_identifier]['logfile']
+        stimuli_order = self.sessions[session_identifier]['stimuli_order']
+        completed_stimuli = self.sessions[session_identifier]['completed_stimuli']
+        gaze = self.get_gaze_frame(session_identifier, create_if_not_exists=True)
 
 
 if __name__ == '__main__':
@@ -345,3 +360,4 @@ if __name__ == '__main__':
     #multipleye.add_recorded_sessions(data_root= data_folder_path / 'eye-tracking-sessions' / 'core_dataset', convert_to_asc=False, session_folder_regex=r"005_ET_EE_1_ET1")
     #multipleye.create_gaze_frame("005_ET_EE_1_ET1")
     multipleye.create_sanity_check_report(["005_ET_EE_1_ET1", "006_ET_EE_1_ET1"])
+    multipleye.create_experiment_frame("005_ET_EE_1_ET1")

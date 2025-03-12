@@ -95,11 +95,11 @@ def check_instructions(messages: list, stimuli: Stimulus | list, report_file: Pa
                         'start_recording_PRACTICE_trial_1_stimulus_Enc_WikiMoon_13_page_2',
                         'start_recording_PRACTICE_trial_2_stimulus_Lit_NorthWind_7_page_1',
                         'stop_recording_PRACTICE_trial_2_stimulus_Lit_NorthWind_7_page_1', 'transition_screen',
-                        'final_validation', 'show_final_screen', 'obligatory_break', 'obligatory_break_end',
-                        'recalibration']
+                        'final_validation', 'show_final_screen', 'obligatory_break', 'obligatory_break_end']
+
     optional_screens = ['empty_screen', 'optional_break_screen', 'fixation_trigger:skipped_by_experimenter',
                         'fixation_trigger:experimenter_calibration_triggered', 'optional_break',
-                        'optional_break_duration', 'obligatory_break']
+                        'optional_break_duration', 'obligatory_break', 'recalibration']
     reoccuring_screens = ['showing_subject_difficulty_screen', 'showing_familiarity_rating_screen_1',
                           'showing_familiarity_rating_screen_2']
 
