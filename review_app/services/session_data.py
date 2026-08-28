@@ -180,6 +180,11 @@ CHECK_REGISTRY: list[dict] = [
         "label": "Session interrupted",
         "category": "Experiment",
     },
+    {
+        "field": "restarted_session_name",
+        "label": "Restarted session name",
+        "category": "Experiment",
+    },
     # Comprehension
     {
         "field": "avg_comprehension_score",
