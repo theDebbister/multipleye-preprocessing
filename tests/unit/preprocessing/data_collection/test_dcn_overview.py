@@ -353,6 +353,7 @@ class TestComputedAverages:
         assert q["mean_data_loss_ratio"] is None
         assert q["mean_blink_ratio"] is None
         assert q["mean_total_reading_time_ms"] is None
+        assert q["mean_rt_per_stim_ms"] is None
         assert q["mean_comprehension_score"] is None
         assert q["mean_comprehension_score_local"] is None
         assert q["mean_comprehension_score_global"] is None
@@ -418,6 +419,20 @@ class TestComputedAverages:
         assert q["mean_validation_error_dva"] == 0.4
         assert q["mean_data_loss_ratio"] == 0.02
         assert q["mean_blink_ratio"] == 0.02
+
+    def test_mean_rt_per_stim_averages(
+        self, dummy_dcn_dir, mock_load_lab_config, mock_pipeline_version
+    ) -> None:
+        dc = _create_dc(dummy_dcn_dir)
+        for s in dc.sessions.values():
+            _setup_session_with_data(s)
+            s.mean_rt_per_stim_ms = 3000.0
+        dc.sessions["003_EN_UK_1_ET1"].mean_rt_per_stim_ms = 5000.0
+
+        overview = dc.create_dataset_overview(path=dummy_dcn_dir)
+        q = _qual(overview)
+
+        assert q["mean_rt_per_stim_ms"] == 3666.67
 
 
 class TestAttritionRate:

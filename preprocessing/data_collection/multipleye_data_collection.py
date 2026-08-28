@@ -961,6 +961,7 @@ class MultipleyeDataCollection:
                 "mean_blink_ratio": None,
                 "mean_total_reading_time_ms": None,
                 "mean_total_session_duration_s": None,
+                "mean_rt_per_stim_ms": None,
                 "mean_wpm": None,
                 "mean_comprehension_score": None,
                 "mean_comprehension_score_local": None,
@@ -1029,6 +1030,7 @@ class MultipleyeDataCollection:
             "mean_validation_error_dva": (
                 round(sum(val_errors) / len(val_errors), 2) if val_errors else None
             ),
+            "mean_rt_per_stim_ms": _mean_of("mean_rt_per_stim_ms"),
             "mean_data_loss_ratio": (
                 round(sum(data_loss) / len(data_loss), 2) if data_loss else None
             ),
