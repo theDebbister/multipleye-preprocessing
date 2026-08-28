@@ -140,6 +140,16 @@ CHECK_REGISTRY: list[dict] = [
         "category": "Recording",
     },
     {
+        "field": "mean_rt_per_stim_ms",
+        "label": "Mean reading time per stimulus (ms)",
+        "category": "Recording",
+    },
+    {
+        "field": "sd_rt_per_stim_ms",
+        "label": "SD reading time per stimulus (ms)",
+        "category": "Recording",
+    },
+    {
         "field": "obligatory_break_made",
         "label": "Obligatory break taken",
         "category": "Recording",

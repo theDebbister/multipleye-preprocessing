@@ -265,6 +265,60 @@ def test_stimulus_order_ids_with_names_unknown_without_stimuli() -> None:
     assert proc["stimulus_order_ids_with_names"] == "unknown"
 
 
+def test_mean_rt_per_stim_from_stimulus_start_end_ts() -> None:
+    sess = _sess_with_validation_data()
+    sess.stimulus_start_end_ts = [
+        {
+            "stimulus": "a",
+            "trial": "trial_1",
+            "type": "reading time",
+            "duration_ms": 3000.0,
+        },
+        {
+            "stimulus": "a",
+            "trial": "trial_1",
+            "type": "reading time",
+            "duration_ms": 1000.0,
+        },
+        {
+            "stimulus": "b",
+            "trial": "trial_2",
+            "type": "reading time",
+            "duration_ms": 2000.0,
+        },
+        {
+            "stimulus": "a",
+            "trial": "trial_1",
+            "type": "time before pages and breaks",
+            "duration_ms": 500.0,
+        },
+    ]
+
+    overview = sess.create_overview()
+    proc = overview["experiment_procedure"]
+
+    assert proc["mean_rt_per_stim_ms"] == 3000.0
+    assert proc["sd_rt_per_stim_ms"] == 1414.21
+
+
+def test_mean_rt_per_stim_unknown_without_reading_time() -> None:
+    sess = _sess_with_validation_data()
+    sess.stimulus_start_end_ts = [
+        {
+            "stimulus": "a",
+            "trial": "trial_1",
+            "type": "time before pages and breaks",
+            "duration_ms": 500.0,
+        },
+    ]
+
+    overview = sess.create_overview()
+    proc = overview["experiment_procedure"]
+
+    assert proc["mean_rt_per_stim_ms"] == "unknown"
+    assert proc["sd_rt_per_stim_ms"] == "unknown"
+
+
 def test_data_formats_section() -> None:
     sess = _sess_with_validation_data()
 
