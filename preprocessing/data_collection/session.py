@@ -38,6 +38,9 @@ class Session:
     completed_stimuli_names: list[str] | str = field(default="unknown", init=False)
     question_order: dict[str, list[str]] | str = field(default="unknown", init=False)
     stimulus_order_ids: list[int] | str = field(default="unknown", init=False)
+    stimulus_order_ids_with_names: list[dict[str, object]] | str = field(
+        default="unknown", init=False
+    )
     messages: pl.DataFrame | list[dict[str, str]] | str = field(
         default="unknown", init=False
     )
@@ -158,6 +161,7 @@ class Session:
             "experiment_procedure": {
                 "question_order": self.question_order,
                 "stimulus_order_ids": self.stimulus_order_ids,
+                "stimulus_order_ids_with_names": self.stimulus_order_ids_with_names,
                 "num_completed_trials": len(self.stimulus_order_ids)
                 if isinstance(self.stimulus_order_ids, list)
                 else None,
@@ -364,6 +368,10 @@ class Session:
             if reading is not None:
                 self.total_reading_time = reading
 
+        order_with_names = self._compute_stimulus_order_with_names()
+        if isinstance(order_with_names, list):
+            self.stimulus_order_ids_with_names = order_with_names
+
     def _compute_total_reading_time(self) -> float | None:
         """Return total reading time in seconds from stimulus start/end timestamps.
 
@@ -386,6 +394,35 @@ class Session:
         if total_ms <= 0:
             return None
         return round(total_ms / 1000, 3)
+
+    def _compute_stimulus_order_with_names(
+        self,
+    ) -> list[dict[str, object]] | str:
+        """Return the stimulus order as a list of trial/stim-id/stim-name mappings.
+
+        Each entry maps the presented order to its trial, stimulus id, and
+        stimulus name. Returns ``"unknown"`` when the stimulus order or stimulus
+        metadata is not available.
+        """
+        if not isinstance(self.stimulus_order_ids, list) or not self.stimulus_order_ids:
+            return "unknown"
+        if not isinstance(self.stimuli, list):
+            return "unknown"
+
+        id_to_stim = {
+            getattr(s, "id", None): s for s in self.stimuli if hasattr(s, "id")
+        }
+        id_to_stim = {sid: s for sid, s in id_to_stim.items() if sid is not None}
+
+        result: list[dict[str, object]] = []
+        for stim_id in self.stimulus_order_ids:
+            entry: dict[str, object] = {"stimulus_id": stim_id}
+            stim = id_to_stim.get(stim_id)
+            if stim is not None:
+                entry["stimulus_name"] = getattr(stim, "name", None)
+                entry["trial"] = getattr(stim, "trial_id", None)
+            result.append(entry)
+        return result
 
     def _reading_time_by_trial(self) -> dict[str, float]:
         """Return total reading time in ms per trial from stimulus timestamps."""

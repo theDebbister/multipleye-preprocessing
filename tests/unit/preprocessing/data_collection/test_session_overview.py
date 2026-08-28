@@ -234,6 +234,37 @@ def test_reading_time_from_stimulus_start_end_ts() -> None:
     assert proc["total_reading_time_s"] == 5.0
 
 
+def test_stimulus_order_ids_with_names() -> None:
+    from types import SimpleNamespace
+
+    sess = _sess_with_validation_data()
+    sess.stimuli = [
+        SimpleNamespace(id=1, name="Lit_MagicMountain", trial_id="trial_1"),
+        SimpleNamespace(id=2, name="Lit_Alchemist", trial_id="trial_2"),
+        SimpleNamespace(id=3, name="Enc_WikiMoon", trial_id="trial_3"),
+    ]
+    sess.stimulus_order_ids = [3, 1, 2]
+
+    overview = sess.create_overview()
+    proc = overview["experiment_procedure"]
+
+    assert proc["stimulus_order_ids_with_names"] == [
+        {"stimulus_id": 3, "stimulus_name": "Enc_WikiMoon", "trial": "trial_3"},
+        {"stimulus_id": 1, "stimulus_name": "Lit_MagicMountain", "trial": "trial_1"},
+        {"stimulus_id": 2, "stimulus_name": "Lit_Alchemist", "trial": "trial_2"},
+    ]
+
+
+def test_stimulus_order_ids_with_names_unknown_without_stimuli() -> None:
+    sess = _sess_with_validation_data()
+    sess.stimulus_order_ids = [1, 2, 3]
+
+    overview = sess.create_overview()
+    proc = overview["experiment_procedure"]
+
+    assert proc["stimulus_order_ids_with_names"] == "unknown"
+
+
 def test_data_formats_section() -> None:
     sess = _sess_with_validation_data()
 
