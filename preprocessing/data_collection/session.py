@@ -54,6 +54,7 @@ class Session:
 
     logfile: str = field(default="unknown", init=False)
     interrupted: bool | str = field(default="unknown", init=False)
+    restarted_session_name: str = field(default="unknown", init=False)
     lab_config: LabConfig | str = field(default="unknown", init=False)
 
     # stats
@@ -168,6 +169,7 @@ class Session:
                 if isinstance(self.stimulus_order_ids, list)
                 else None,
                 "was_session_interrupted": self.interrupted,
+                "restarted_session_name": self.restarted_session_name,
                 "obligatory_break_made": self.obligatory_break_made,
                 "num_optional_breaks_made": self.num_optional_breaks_made,
                 "total_break_time_s": self.total_break_time,
@@ -363,6 +365,8 @@ class Session:
 
         self.trials = self._compute_trials()
 
+        self._compute_restart_info()
+
         duration = self._compute_session_duration()
         if duration is not None:
             self.total_session_duration = duration
@@ -473,6 +477,22 @@ class Session:
             variance = sum((v - mean_rt) ** 2 for v in values) / (len(values) - 1)
             sd_rt = round(variance**0.5, 2)
         return mean_rt, sd_rt
+
+    def _compute_restart_info(self) -> None:
+        """Set the interrupted flag and restarted session name from the SID postfix.
+
+        A session is a restart when its identifier carries a ``start_after_trial_<n>``
+        or ``full_restart`` postfix. In that case ``restarted_session_name`` stores the
+        canonical session identifier (without the postfix) that was restarted.
+        """
+        try:
+            sid = Sid(self.session_identifier)
+        except (ValueError, TypeError):
+            return
+        is_restart = bool(sid.notes)
+        if isinstance(self.interrupted, str):
+            self.interrupted = is_restart
+        self.restarted_session_name = sid.id_no_postfix if is_restart else "unknown"
 
     def _reading_time_by_trial(self) -> dict[str, float]:
         """Return total reading time in ms per trial from stimulus timestamps."""

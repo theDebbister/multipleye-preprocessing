@@ -319,6 +319,29 @@ def test_mean_rt_per_stim_unknown_without_reading_time() -> None:
     assert proc["sd_rt_per_stim_ms"] == "unknown"
 
 
+def test_restarted_session_name() -> None:
+    sess = _make_session(
+        overrides={"session_identifier": "041_KL_DK_1_ET1_start_after_trial_1"}
+    )
+    _seed_metadata(sess)
+
+    overview = sess.create_overview()
+    proc = overview["experiment_procedure"]
+
+    assert proc["was_session_interrupted"] is True
+    assert proc["restarted_session_name"] == "041_KL_DK_1_ET1"
+
+
+def test_restarted_session_name_absent_for_normal_session() -> None:
+    sess = _sess_with_validation_data()
+
+    overview = sess.create_overview()
+    proc = overview["experiment_procedure"]
+
+    assert proc["was_session_interrupted"] is False
+    assert proc["restarted_session_name"] == "unknown"
+
+
 def test_data_formats_section() -> None:
     sess = _sess_with_validation_data()
 
