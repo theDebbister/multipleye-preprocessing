@@ -206,12 +206,11 @@ def run_preprocessing(config_path: str | None = None):
                 f"Gaze data missing for {sess.sid}. Skipping event detection."
             )
         else:
-            #Count previously outputted fixation files
+            # Count previously outputted fixation files
             num_expected_files = len(sess.completed_stimuli_ids)
             num_files = len(list(fixation_data_folder.glob("*.csv")))
 
             if settings.RUN_FIXATION_DETECTION:
-
                 if (
                     num_expected_files == num_files
                     and fixation_data_folder.exists()
@@ -234,13 +233,13 @@ def run_preprocessing(config_path: str | None = None):
 
                     preprocessing.detect_fixations(gaze)
                     preprocessing.save_events_data(
-                            settings.FIXATION,
-                            sess.sid,
-                            "trial",
-                            ["trial", "stimulus"],
-                            ["onset", "duration", "location_x", "location_y", "page"],
-                            gaze,
-                        )
+                        settings.FIXATION,
+                        sess.sid,
+                        "trial",
+                        ["trial", "stimulus"],
+                        ["onset", "duration", "location_x", "location_y", "page"],
+                        gaze,
+                    )
 
                     # Unnest event columns (e.g. location struct -> location_x/location_y)
                     # so downstream code doesn't need to handle struct columns.
@@ -249,24 +248,23 @@ def run_preprocessing(config_path: str | None = None):
                             gaze.events.unnest()
 
             else:
-                #Fixation detection is disabled
+                # Fixation detection is disabled
                 if num_expected_files == num_files:
                     logger.info(f"Using existing fixation data for {sess.sid}")
                     gaze = preprocessing.load_trial_level_events_data(
-                                        gaze,
-                                        sess.sid,
-                                        event_type=settings.FIXATION,
-                                        file_pattern=None,
-                                    )
+                        gaze,
+                        sess.sid,
+                        event_type=settings.FIXATION,
+                        file_pattern=None,
+                    )
                 else:
-                    #Fixation detection is disabled, but previous outputs are also not available
+                    # Fixation detection is disabled, but previous outputs are also not available
                     logger.info(f"Skipping fixation detection for {sess.sid}")
 
-            #Count previously outputted saccade files
+            # Count previously outputted saccade files
             num_files = len(list(saccade_data_folder.glob("*.csv")))
 
             if settings.RUN_SACCADE_DETECTION:
-
                 if (
                     num_expected_files == num_files
                     and saccade_data_folder.exists()
@@ -314,29 +312,26 @@ def run_preprocessing(config_path: str | None = None):
                             gaze.events.unnest()
 
             else:
-                #Saccade detection is disabled
+                # Saccade detection is disabled
                 if num_expected_files == num_files:
                     logger.info(f"Using existing saccade data for {sess.sid}")
                     gaze = preprocessing.load_trial_level_events_data(
-                                        gaze,
-                                        sess.sid,
-                                        event_type=settings.SACCADE,
-                                        file_pattern=None,
-                                    )
+                        gaze,
+                        sess.sid,
+                        event_type=settings.SACCADE,
+                        file_pattern=None,
+                    )
                 else:
-                    #Saccade detection is disabled, but previous outputs are also not available
+                    # Saccade detection is disabled, but previous outputs are also not available
                     logger.info(f"Skipping saccade detection for {sess.sid}")
-
 
         # map to AOIs and create scanpaths
         if (
             gaze is None
             or gaze.events is None
-            or gaze.events.frame.filter(
-                pl.col("name") == settings.FIXATION
-            ).is_empty()
+            or gaze.events.frame.filter(pl.col("name") == settings.FIXATION).is_empty()
         ):
-            #Fixation data is not availablec, either due to skipping or other reasons
+            # Fixation data is not availablec, either due to skipping or other reasons
             logger.warning(
                 f"Fixations missing for {sess.sid}. Skipping AOI mapping/scanpaths."
             )
