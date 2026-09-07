@@ -201,14 +201,16 @@ def run_preprocessing(config_path: str | None = None):
         fixation_data_folder = sess.sid.fixations_dir
         saccade_data_folder = sess.sid.saccades_dir
 
-        if settings.RUN_FIXATION_DETECTION or settings.RUN_SACCADE_DETECTION:
-            if gaze is None:
-                logger.warning(
-                    f"Gaze data missing for {sess.sid}. Skipping event detection."
-                )
-            else:
-                num_expected_files = len(sess.completed_stimuli_ids)
-                num_files = len(list(fixation_data_folder.glob("*.csv")))
+        if gaze is None:
+            logger.warning(
+                f"Gaze data missing for {sess.sid}. Skipping event detection."
+            )
+        else:
+            #Count previously outputted fixation files
+            num_expected_files = len(sess.completed_stimuli_ids)
+            num_files = len(list(fixation_data_folder.glob("*.csv")))
+
+            if settings.RUN_FIXATION_DETECTION:
 
                 if (
                     num_expected_files == num_files
@@ -230,10 +232,8 @@ def run_preprocessing(config_path: str | None = None):
                     # If files were not complete or recalculation is active we run fixation detection
                     pbar.set_description(f"Detecting fixations {sess.sid}:")
 
-                    if settings.RUN_FIXATION_DETECTION:
-                        preprocessing.detect_fixations(gaze)
-
-                        preprocessing.save_events_data(
+                    preprocessing.detect_fixations(gaze)
+                    preprocessing.save_events_data(
                             settings.FIXATION,
                             sess.sid,
                             "trial",
@@ -248,7 +248,24 @@ def run_preprocessing(config_path: str | None = None):
                         with contextlib.suppress(Warning):
                             gaze.events.unnest()
 
-                num_files = len(list(saccade_data_folder.glob("*.csv")))
+            else:
+                #Fixation detection is disabled
+                if num_expected_files == num_files:
+                    logger.info(f"Using existing fixation data for {sess.sid}")
+                    gaze = preprocessing.load_trial_level_events_data(
+                                        gaze,
+                                        sess.sid,
+                                        event_type=settings.FIXATION,
+                                        file_pattern=None,
+                                    )
+                else:
+                    #Fixation detection is disabled, but previous outputs are also not available
+                    logger.info(f"Skipping fixation detection for {sess.sid}")
+
+            #Count previously outputted saccade files
+            num_files = len(list(saccade_data_folder.glob("*.csv")))
+
+            if settings.RUN_SACCADE_DETECTION:
 
                 if (
                     num_expected_files == num_files
@@ -295,61 +312,56 @@ def run_preprocessing(config_path: str | None = None):
                     if gaze is not None and gaze.events is not None:
                         with contextlib.suppress(Warning):
                             gaze.events.unnest()
-        else:
-            pbar.set_description(f"Skipping event detection {sess.sid}:")
-            # Load existing if available
-            if (
-                gaze is not None
-                and fixation_data_folder.exists()
-                and saccade_data_folder.exists()
-            ):
-                logger.info(f"Using existing event data for {sess.sid}")
-                gaze = preprocessing.load_trial_level_events_data(
-                    gaze,
-                    sess.sid,
-                    event_type=settings.FIXATION,
-                    file_pattern=None,
-                )
-                gaze = preprocessing.load_trial_level_events_data(
-                    gaze,
-                    sess.sid,
-                    event_type=settings.SACCADE,
-                    file_pattern=None,
-                )
+
+            else:
+                #Saccade detection is disabled
+                if num_expected_files == num_files:
+                    logger.info(f"Using existing saccade data for {sess.sid}")
+                    gaze = preprocessing.load_trial_level_events_data(
+                                        gaze,
+                                        sess.sid,
+                                        event_type=settings.SACCADE,
+                                        file_pattern=None,
+                                    )
+                else:
+                    #Saccade detection is disabled, but previous outputs are also not available
+                    logger.info(f"Skipping saccade detection for {sess.sid}")
+
 
         # map to AOIs and create scanpaths
-        if settings.RUN_FIXATION_DETECTION:  # Mapping depends on fixations
+        if (
+            gaze is None
+            or gaze.events is None
+            or gaze.events.frame.filter(
+                pl.col("name") == settings.FIXATION
+            ).is_empty()
+        ):
+            #Fixation data is not availablec, either due to skipping or other reasons
+            logger.warning(
+                f"Fixations missing for {sess.sid}. Skipping AOI mapping/scanpaths."
+            )
+        else:
+            # Check whether scanpaths have been saved before for this session
+            num_expected_files = len(sess.completed_stimuli_ids)
+
+            scanpaths_data_folder = sess.sid.scanpaths_dir
+            num_files = len(list(scanpaths_data_folder.glob("*.csv")))
+
             if (
-                gaze is None
-                or gaze.events is None
-                or gaze.events.frame.filter(
-                    pl.col("name") == settings.FIXATION
-                ).is_empty()
+                num_files == num_expected_files
+                and scanpaths_data_folder.exists()
+                and not settings.RECALCULATE
+                and not recalculated_upstream
             ):
-                logger.warning(
-                    f"Fixations missing for {sess.sid}. Skipping AOI mapping/scanpaths."
-                )
+                gaze = preprocessing.load_scanpaths(gaze, sess.sid)
+
             else:
-                # Check whether scanpaths have been saved before for this session
-                num_expected_files = len(sess.completed_stimuli_ids)
-
-                scanpaths_data_folder = sess.sid.scanpaths_dir
-                num_files = len(list(scanpaths_data_folder.glob("*.csv")))
-
-                if (
-                    num_files == num_expected_files
-                    and scanpaths_data_folder.exists()
-                    and not settings.RECALCULATE
-                    and not recalculated_upstream
-                ):
-                    gaze = preprocessing.load_scanpaths(gaze, sess.sid)
-                else:
-                    recalculated_upstream = True
-                    preprocessing.map_fixations_to_aois(
-                        gaze,
-                        sess.stimuli,
-                    )
-                    preprocessing.save_scanpaths(sess.sid, gaze)
+                recalculated_upstream = True
+                preprocessing.map_fixations_to_aois(
+                    gaze,
+                    sess.stimuli,
+                )
+                preprocessing.save_scanpaths(sess.sid, gaze)
 
                 preprocessing.save_session_metadata(sess.sid, gaze)
 
