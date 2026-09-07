@@ -438,7 +438,7 @@ def load_scanpaths(
         The session identifier.
     file_pattern : str, optional
         A pattern for matching CSV file names to extract relevant groups.
-        If None, defaults to settings.SCANPATH_FILENAME_REGEX formatted with event_type.
+        If None, defaults to settings.SCANPATH_FILENAME_REGEX.
 
     Returns
     -------
