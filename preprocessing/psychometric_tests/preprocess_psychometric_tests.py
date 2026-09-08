@@ -32,34 +32,24 @@ from ..utils.logging import get_logger
 
 def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
     """
-    Preprocess all sessions and write overview and detailed results.
+    Preprocess all psychometric test sessions and write a consolidated results table.
 
     This function performs the following steps:
     1. Validates the psychometric data structure.
     2. Iterates through each session folder.
     3. Extracts session information (PID, session part, postfix).
     4. Preprocesses each individual test (LWMC, RAN, Stroop, Flanker, WikiVocab, PLAB).
-    5. Aggregates results into an overview row per session.
-    6. Writes a detailed CSV for each session to the output directory.
-    7. Writes a comprehensive overview CSV for all sessions to the output directory.
+    5. Aggregates all results (summary and detailed metrics) into a wide row per session.
+    6. Writes a consolidated per-session results CSV and a per-participant merged CSV.
 
-    Two types of outputs are generated:
+    Two output files are generated in ``OUTPUT_DIR / PSYCHOMETRIC_TESTS_FOLDER``:
 
-    1. **Overview CSV** (one row per session) saved to
-       ``OUTPUT_DIR / PSYCHOMETRIC_TESTS_FOLDER``.
-       The filename includes the data collection name.
-       The overview contains only the requested summary metrics:
-       - LWMC: scores only (no times)
-       - Stroop & Flanker: AccuracyEffect and TREffect only
-       - WikiVocab: rt_mean, accuracy, incorrect_correct_score
-       - RAN: Reaction time for two trials
-       - PLAB: RT mean and accuracy (overall and split for sets 1 and 2)
-
-    2. **Per-session detailed CSV** saved to
-       ``OUTPUT_DIR / PSYCHOMETRIC_TESTS_FOLDER / {session_name}``
-       with all available detailed metrics in a readable, wide format
-       (namespaced columns). For example, grouped RT/accuracy for
-       Stroop/Flanker are stored as columns like ``Stroop_congruent_rt_mean``.
+    - ``psychometric_results_{DCN}.csv``: one row per session with all available
+      metrics (per-condition RT/accuracy/item counts, LWMC scores and timings,
+      WikiVocab item breakdowns, PLAB set splits), prefixed per test. Sessions
+      without a given test have empty cells for that test's columns.
+    - ``psychometric_results_{DCN}_merged.csv``: sessions merged per participant
+      (e.g. PT1 + PT2) when their tests are disjoint.
 
     Parameters
     ----------
@@ -70,12 +60,12 @@ def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
     Returns
     -------
     Path
-        The path to the generated overview CSV file.
+        The path to the generated per-session results CSV file.
 
     Notes
     -----
-    - All computations are performed once per session and then split into
-      overview vs. detailed outputs.
+    - All computations are performed once per session and collected into a single
+      wide per-session row; tests without data produce empty cells.
     """
     if test_session_folder is None:
         test_session_folder = settings.PSYCHOMETRIC_TESTS_DIR
@@ -103,6 +93,7 @@ def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
     session_folders = sorted(session_folders, key=lambda p: p.name)
 
     overview_rows: list[dict] = []
+    detailed_rows: list[dict] = []
 
     for session in session_folders:
         try:
@@ -298,24 +289,15 @@ def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
                     f"[{session.name}] PLAB test skipped: {err!s}"
                 )
 
-        # Write per-session detailed CSV to the output directory
-        try:
-            detailed_out = output_dir / session.name
-            detailed_out.mkdir(parents=True, exist_ok=True)
-            detailed_path = detailed_out / f"psychometric_details_{session.name}.csv"
-            pd.DataFrame([detailed_row]).to_csv(detailed_path, index=False)
-        except Exception as exc:
-            get_logger(__name__).debug(
-                f"Failed to write detailed CSV for {session.name}: {exc}"
-            )
-
+        # Collect the wide per-session row containing all summary and detailed metrics.
+        detailed_rows.append(detailed_row)
         overview_rows.append(overview_row)
 
     # Write overview CSV (wide format) to the output directory
-    out_path = output_dir / f"psychometric_overview_{settings.DATA_COLLECTION_NAME}.csv"
-    df = pd.DataFrame(overview_rows)
-    # Ensure columns order: session_id, participant_id, then flags, then notes, then the rest
-    session_cols = ["session_id"]
+    out_path = output_dir / f"psychometric_results_{settings.DATA_COLLECTION_NAME}.csv"
+
+    # Consolidated wide table: all detailed metrics per session plus _Done flags.
+    df = pd.DataFrame(detailed_rows)
     flag_cols = [
         "LWMC_Done",
         "RAN_Done",
@@ -324,23 +306,20 @@ def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
         "WikiVocab_Done",
         "PLAB_Done",
     ]
-    for col in flag_cols:
-        if col not in df.columns:
-            df[col] = 0
+    # Merge the _Done flags (present on overview rows) into the detailed rows.
+    flag_df = pd.DataFrame(overview_rows)[flag_cols].fillna(0).astype(int)
+    df = pd.concat([df, flag_df], axis=1)
 
-    # Identify non-fixed columns
-    fixed = session_cols + ["participant_id"] + flag_cols + ["notes"]
-    remaining = [c for c in df.columns if c not in fixed]
-
-    # Filter out columns that might not exist in df
-    final_cols = [c for c in fixed if c in df.columns] + remaining
-    df = df[final_cols]
+    # Order columns: identifiers, then flags, then metrics grouped by test.
+    id_cols = ["session_id", "participant_id", "session", "postfix", "notes"]
+    ordered_cols = _ordered_psychometric_columns(df.columns, id_cols, flag_cols)
+    df = df[ordered_cols]
     df.to_csv(out_path, index=False)
 
-    get_logger(__name__).info(f"Wrote overview: {out_path}")
+    get_logger(__name__).info(f"Wrote results: {out_path}")
 
     merged_path = create_merged_psychometric_overview(out_path)
-    get_logger(__name__).info(f"Wrote merged overview: {merged_path}")
+    get_logger(__name__).info(f"Wrote merged results: {merged_path}")
 
     _warn_missing_tests_in_merged_overview(merged_path)
 
@@ -349,7 +328,7 @@ def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
 
 def create_merged_psychometric_overview(overview_path: Path) -> Path:
     """
-    Creates a merged version of the psychometric overview CSV.
+    Create a merged version of a wide psychometric results table.
 
     Rows for the same participant are merged if their tests are disjoint
     (e.g., PT1 has RAN and PT2 has LWMC). If tests overlap, they are not
@@ -358,7 +337,7 @@ def create_merged_psychometric_overview(overview_path: Path) -> Path:
     Parameters
     ----------
     overview_path : Path
-        Path to the original psychometric overview CSV.
+        Path to the wide per-session results CSV (e.g. ``psychometric_results_*``).
 
     Returns
     -------
@@ -474,6 +453,50 @@ def create_merged_psychometric_overview(overview_path: Path) -> Path:
 
 def _is_valid_folder(folder: Path) -> bool:
     return folder.is_dir() and folder.stem[:3].isdigit() and folder.stem[3] == "_"
+
+
+_TEST_ORDER = ["LWMC", "RAN", "Stroop", "Flanker", "WikiVocab", "PLAB"]
+
+
+def _ordered_psychometric_columns(
+    columns: list[str],
+    id_cols: list[str],
+    flag_cols: list[str],
+) -> list[str]:
+    """
+    Order the wide results columns: identifiers, then flags, then metrics per test.
+
+    Metric columns are grouped by their test name prefix (``_TEST_ORDER``) and
+    sorted alphabetically within each group. Any unrecognized metric columns are
+    appended at the end in sorted order.
+
+    Parameters
+    ----------
+    columns : list[str]
+        All columns present in the results table.
+    id_cols : list[str]
+        Identifier columns to place first.
+    flag_cols : list[str]
+        ``_Done`` flag columns to place after the identifiers.
+
+    Returns
+    -------
+    list[str]
+        The ordered column list (only columns present in ``columns``).
+    """
+    ids = [c for c in id_cols if c in columns]
+    flags = [c for c in flag_cols if c in columns]
+    metrics = [c for c in columns if c not in id_cols and c not in flag_cols]
+
+    remaining = list(metrics)
+    metrics_ordered: list[str] = []
+    for prefix in _TEST_ORDER:
+        group = sorted(c for c in remaining if c.startswith(prefix))
+        metrics_ordered.extend(group)
+        remaining = [c for c in remaining if c not in group]
+    metrics_ordered.extend(sorted(remaining))
+
+    return ids + flags + metrics_ordered
 
 
 def _warn_missing_tests_in_merged_overview(merged_path: Path) -> None:

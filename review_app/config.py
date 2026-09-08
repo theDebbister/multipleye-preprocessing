@@ -65,5 +65,5 @@ def psychometric_path(dcn_name: str) -> Path:
     return (
         dcn_path(dcn_name)
         / _PSYCHOMETRIC_TESTS_FOLDER
-        / f"psychometric_overview_{dcn_name}.csv"
+        / f"psychometric_results_{dcn_name}.csv"
     )

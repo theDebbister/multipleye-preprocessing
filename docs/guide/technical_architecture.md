@@ -103,7 +103,7 @@ preprocessed_data/{dcn}/
 ├── reading_measures/       # word-level reading measures
 ├── comp_answers/           # comprehension question answers
 ├── sanity_checks/          # quality reports and plots
-├── psychometric_tests/     # PT overview + per-session details
+├── psychometric_tests/     # PT results table (+ merged per-participant table)
 ├── participant_data.csv
 ├── {dcn}_overview.yaml
 └── stimuli_{dcn}/          # copy of stimulus assets used
@@ -111,6 +111,6 @@ preprocessed_data/{dcn}/
 
 **Filenames follow a consistent pattern.** Per-trial files are named
 `{sid}_{trial}_{stimulus}_{stage}.csv`. Psychometric test outputs use
-`psychometric_overview_{dcn}.csv` (one row per session) and
-`psychometric_overview_{dcn}_merged.csv` (sessions merged per participant when tests are
-disjoint). The merged overview combines PT1 and PT2 data for the same subject.
+`psychometric_results_{dcn}.csv` (one row per session with all test metrics) and
+`psychometric_results_{dcn}_merged.csv` (sessions merged per participant when tests are
+disjoint). The merged table combines PT1 and PT2 data for the same subject.

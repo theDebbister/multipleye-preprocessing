@@ -30,7 +30,7 @@ def test_non_compliant_sid_in_preprocess(tmp_path, monkeypatch):
     overview_path = preprocess_all_sessions(sessions_dir)
     df = pd.read_csv(overview_path)
 
-    assert overview_path == output_dir / "psychometric_overview_dcn.csv"
+    assert overview_path == output_dir / "psychometric_results_dcn.csv"
 
     # Check session_id for non-compliant folder
     # The participant_id might also be extracted incorrectly if not compliant
@@ -38,12 +38,8 @@ def test_non_compliant_sid_in_preprocess(tmp_path, monkeypatch):
     row = df[df["participant_id"].astype(str).isin(["10", "010"])].iloc[0]
     assert row["session_id"] == "010_DE_Lueneburg_1_PT1"
 
-    detailed_path = (
-        output_dir
-        / "010_DE_Lueneburg_1_PT1"
-        / "psychometric_details_010_DE_Lueneburg_1_PT1.csv"
-    )
-    assert detailed_path.exists()
+    # The consolidated table also produces a merged per-participant file.
+    assert (output_dir / "psychometric_results_dcn_merged.csv").exists()
 
 
 def test_non_compliant_sid_in_merged_overview(tmp_path):
