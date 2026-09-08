@@ -16,6 +16,7 @@ Background and task descriptions:
 https://github.com/MultiplEYE-COST/MultiplEYE-psychometric-tests#readme
 """
 
+from logging import Logger
 from math import nan
 from pathlib import Path
 
@@ -529,6 +530,7 @@ def _warn_missing_tests_in_merged_overview(merged_path: Path) -> None:
         base_id = str(row["session_id"])
         if base_id not in expected_by_base:
             continue
+        pid_digits = base_id.split("_")[0]
         expected = expected_by_base[base_id]
         for yaml_flag, folder_name in settings.PSYCHOMETRIC_TEST_MAPPING.items():
             done_names = [
@@ -540,36 +542,66 @@ def _warn_missing_tests_in_merged_overview(merged_path: Path) -> None:
             all_done = all(int(row[c]) > 0 for c in done_names)
             if expected.get(yaml_flag, False):
                 if not all_done:
-                    missing_for_expected.setdefault(base_id, []).append(folder_name)
+                    missing_for_expected.setdefault(folder_name, []).append(pid_digits)
             else:
                 if any_done:
-                    present_but_unexpected.setdefault(base_id, []).append(folder_name)
+                    present_but_unexpected.setdefault(folder_name, []).append(
+                        pid_digits
+                    )
 
-    logger = get_logger(__name__)
-    if missing_for_expected:
-        lines = [
-            f"  - {pid}: {', '.join(sorted(names))}"
-            for pid, names in sorted(missing_for_expected.items())
-        ]
-        logger.warning(
-            "The following participants are missing expected psychometric tests in "
-            "the merged overview (marked as expected in config, but no results were "
-            "preprocessed):\n%s\nTotal: %d participant(s).",
-            "\n".join(lines),
-            len(missing_for_expected),
-        )
-    if present_but_unexpected:
-        lines = [
-            f"  - {pid}: {', '.join(sorted(names))}"
-            for pid, names in sorted(present_but_unexpected.items())
-        ]
-        logger.warning(
-            "The following participants have psychometric test data in the merged "
-            "overview but are marked as absent (or missing) in config:\n%s\nTotal: "
-            "%d participant(s).",
-            "\n".join(lines),
-            len(present_but_unexpected),
-        )
+    _log_test_report(
+        get_logger(__name__),
+        "Participants missing expected psychometric tests (marked as expected in "
+        "config, but no results were preprocessed)",
+        missing_for_expected,
+    )
+    _log_test_report(
+        get_logger(__name__),
+        "Participants with psychometric test data but marked as absent (or missing) "
+        "in config",
+        present_but_unexpected,
+    )
+
+
+def _log_test_report(
+    logger: Logger,
+    description: str,
+    by_test: dict[str, list[str]],
+    max_pids: int = 10,
+) -> None:
+    """
+    Log a per-test summary of affected participants as a single warning.
+
+    Groups the affected participant IDs (3-digit PIDs) by test and prints a count
+    plus a short list per test, truncating long lists to ``max_pids`` entries.
+
+    Parameters
+    ----------
+    logger : Logger
+        The logger to emit the warning on.
+    description : str
+        Human-readable description of the category being reported.
+    by_test : dict[str, list[str]]
+        Mapping from test folder name to a list of affected participant PID digits.
+    max_pids : int
+        Maximum number of participant IDs to list per test before truncating.
+    """
+    if not by_test:
+        return
+
+    unique_pids = sorted({pid for pids in by_test.values() for pid in pids})
+    lines = [
+        f"{description}:",
+        f"  Affected: {len(unique_pids)} participant(s)",
+    ]
+    for folder_name in sorted(by_test):
+        pids = sorted(dict.fromkeys(by_test[folder_name]))
+        shown = ", ".join(pids[:max_pids])
+        if len(pids) > max_pids:
+            shown += f", ... (+{len(pids) - max_pids} more)"
+        lines.append(f"  {folder_name}: {len(pids)} participant(s): {shown}")
+
+    logger.warning("\n".join(lines))
 
 
 def preprocess_stroop(stroop_flanker_dir: Path) -> dict:
