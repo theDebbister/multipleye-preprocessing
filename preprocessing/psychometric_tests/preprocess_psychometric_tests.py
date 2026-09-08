@@ -530,7 +530,6 @@ def _warn_missing_tests_in_merged_overview(merged_path: Path) -> None:
         base_id = str(row["session_id"])
         if base_id not in expected_by_base:
             continue
-        pid_digits = base_id.split("_")[0]
         expected = expected_by_base[base_id]
         for yaml_flag, folder_name in settings.PSYCHOMETRIC_TEST_MAPPING.items():
             done_names = [
@@ -542,12 +541,10 @@ def _warn_missing_tests_in_merged_overview(merged_path: Path) -> None:
             all_done = all(int(row[c]) > 0 for c in done_names)
             if expected.get(yaml_flag, False):
                 if not all_done:
-                    missing_for_expected.setdefault(folder_name, []).append(pid_digits)
+                    missing_for_expected.setdefault(folder_name, []).append(base_id)
             else:
                 if any_done:
-                    present_but_unexpected.setdefault(folder_name, []).append(
-                        pid_digits
-                    )
+                    present_but_unexpected.setdefault(folder_name, []).append(base_id)
 
     _log_test_report(
         get_logger(__name__),
@@ -567,13 +564,13 @@ def _log_test_report(
     logger: Logger,
     description: str,
     by_test: dict[str, list[str]],
-    max_pids: int = 10,
+    max_sids: int = 5,
 ) -> None:
     """
     Log a per-test summary of affected participants as a single warning.
 
-    Groups the affected participant IDs (3-digit PIDs) by test and prints a count
-    plus a short list per test, truncating long lists to ``max_pids`` entries.
+    Groups the affected participant SIDs by test and prints a count plus a short
+    list per test, truncating long lists to ``max_sids`` entries.
 
     Parameters
     ----------
@@ -582,24 +579,24 @@ def _log_test_report(
     description : str
         Human-readable description of the category being reported.
     by_test : dict[str, list[str]]
-        Mapping from test folder name to a list of affected participant PID digits.
-    max_pids : int
-        Maximum number of participant IDs to list per test before truncating.
+        Mapping from test folder name to a list of affected participant SIDs.
+    max_sids : int
+        Maximum number of participant SIDs to list per test before truncating.
     """
     if not by_test:
         return
 
-    unique_pids = sorted({pid for pids in by_test.values() for pid in pids})
+    unique_sids = sorted({sid for sids in by_test.values() for sid in sids})
     lines = [
         f"{description}:",
-        f"  Affected: {len(unique_pids)} participant(s)",
+        f"  Affected: {len(unique_sids)} participant(s)",
     ]
     for folder_name in sorted(by_test):
-        pids = sorted(dict.fromkeys(by_test[folder_name]))
-        shown = ", ".join(pids[:max_pids])
-        if len(pids) > max_pids:
-            shown += f", ... (+{len(pids) - max_pids} more)"
-        lines.append(f"  {folder_name}: {len(pids)} participant(s): {shown}")
+        sids = sorted(dict.fromkeys(by_test[folder_name]))
+        shown = ", ".join(sids[:max_sids])
+        if len(sids) > max_sids:
+            shown += f", ... (+{len(sids) - max_sids} more)"
+        lines.append(f"  {folder_name}: {len(sids)} participant(s): {shown}")
 
     logger.warning("\n".join(lines))
 
