@@ -286,24 +286,23 @@ def run_preprocessing(config_path: str | None = None):
                     # If files were not complete or recalculation is active we run saccade detection
                     pbar.set_description(f"Detecting saccades {sess.sid}:")
 
-                    if settings.RUN_SACCADE_DETECTION:
-                        preprocessing.detect_saccades(gaze)
+                    preprocessing.detect_saccades(gaze)
 
-                        preprocessing.save_events_data(
-                            settings.SACCADE,
-                            sess.sid,
-                            "trial",
-                            ["trial", "stimulus"],
-                            [
-                                "onset",
-                                "duration",
-                                "amplitude",
-                                "peak_velocity",
-                                "dispersion",
-                                "page",
-                            ],
-                            gaze,
-                        )
+                    preprocessing.save_events_data(
+                        settings.SACCADE,
+                        sess.sid,
+                        "trial",
+                        ["trial", "stimulus"],
+                        [
+                            "onset",
+                            "duration",
+                            "amplitude",
+                            "peak_velocity",
+                            "dispersion",
+                            "page",
+                        ],
+                        gaze,
+                    )
 
                     # Unnest event columns (e.g. location struct -> location_x/location_y)
                     # so downstream code doesn't need to handle struct columns.
@@ -331,7 +330,7 @@ def run_preprocessing(config_path: str | None = None):
             or gaze.events is None
             or gaze.events.frame.filter(pl.col("name") == settings.FIXATION).is_empty()
         ):
-            # Fixation data is not availablec, either due to skipping or other reasons
+            # Fixation data is not available, either due to skipping or other reasons
             logger.warning(
                 f"Fixations missing for {sess.sid}. Skipping AOI mapping/scanpaths."
             )
@@ -375,32 +374,33 @@ def run_preprocessing(config_path: str | None = None):
                     f"Gaze/Event data missing or not mapped for {sess.sid}. Skipping reading measures."
                 )
 
-            num_expected_files = len(sess.completed_stimuli_ids)
-            num_files = len(list(rm_folder.glob("*.csv")))
-
-            if (
-                num_files == num_expected_files
-                and rm_folder.exists()
-                and not settings.RECALCULATE
-                and not recalculated_upstream
-            ):
-                # check if the folder contains the expected number of files, if not, we will recalculate
-
-                pbar.set_description(f"Loading reading measures {sess.sid}:")
-                reading_measures = preprocessing.load_reading_measures(sess.sid)
-
-                data_collection[sess.session_identifier].reading_measures = True
-
             else:
-                recalculated_upstream = True
-                pbar.set_description(f"Calculating reading measures {sess.sid}:")
-                reading_measures = preprocessing.calculate_reading_measures(
-                    gaze,
-                    sess.stimuli,
-                )
+                num_expected_files = len(sess.completed_stimuli_ids)
+                num_files = len(list(rm_folder.glob("*.csv")))
 
-                preprocessing.save_reading_measures(sess.sid, reading_measures)
-                data_collection[sess.session_identifier].reading_measures = True
+                if (
+                    num_files == num_expected_files
+                    and rm_folder.exists()
+                    and not settings.RECALCULATE
+                    and not recalculated_upstream
+                ):
+                    # check if the folder contains the expected number of files, if not, we will recalculate
+
+                    pbar.set_description(f"Loading reading measures {sess.sid}:")
+                    reading_measures = preprocessing.load_reading_measures(sess.sid)
+
+                    data_collection[sess.session_identifier].reading_measures = True
+
+                else:
+                    recalculated_upstream = True
+                    pbar.set_description(f"Calculating reading measures {sess.sid}:")
+                    reading_measures = preprocessing.calculate_reading_measures(
+                        gaze,
+                        sess.stimuli,
+                    )
+
+                    preprocessing.save_reading_measures(sess.sid, reading_measures)
+                    data_collection[sess.session_identifier].reading_measures = True
         else:
             pbar.set_description(f"Skipping reading measures {sess.sid}:")
 
