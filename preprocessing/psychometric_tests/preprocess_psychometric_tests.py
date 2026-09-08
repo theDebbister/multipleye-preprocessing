@@ -16,16 +16,17 @@ Background and task descriptions:
 https://github.com/MultiplEYE-COST/MultiplEYE-psychometric-tests#readme
 """
 
-import warnings
 from math import nan
 from pathlib import Path
 
 import pandas as pd
+import yaml
 from pandas import DataFrame, read_csv
 
 from ..config import settings
 from ..models.sid import Sid
 from ..utils import validate_psychometric_data
+from ..utils.logging import get_logger
 
 
 def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
@@ -83,8 +84,6 @@ def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
     if not test_session_folder.exists() or not any(
         _is_valid_folder(p) for p in test_session_folder.iterdir()
     ):
-        from ..utils.logging import get_logger
-
         get_logger(__name__).info(
             "No psychometric test session folders found. Skipping."
         )
@@ -180,9 +179,8 @@ def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
                         overview_row[k] = res_lwmc[k]
                 overview_row["LWMC_Done"] = 1
             except ValueError as err:
-                warnings.warn(
-                    f"[{session.name}] LWMC test skipped: {err!s}",
-                    category=UserWarning,
+                get_logger(__name__).debug(
+                    f"[{session.name}] LWMC test skipped: {err!s}"
                 )
 
         # RAN
@@ -196,9 +194,8 @@ def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
                 # Mark Done on successful preprocessing regardless of emptiness
                 overview_row["RAN_Done"] = 1
             except ValueError as err:
-                warnings.warn(
-                    f"[{session.name}] RAN test skipped: {err!s}",
-                    category=UserWarning,
+                get_logger(__name__).debug(
+                    f"[{session.name}] RAN test skipped: {err!s}"
                 )
 
         # Stroop & Flanker
@@ -225,9 +222,8 @@ def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
                 detailed_row.update(res_stroop)
                 overview_row["Stroop_Done"] = 1
             except ValueError as err:
-                warnings.warn(
-                    f"[{session.name}] Stroop test skipped: {err!s}",
-                    category=UserWarning,
+                get_logger(__name__).debug(
+                    f"[{session.name}] Stroop test skipped: {err!s}"
                 )
             try:
                 res_flanker = preprocess_flanker(sf_dir)  # DataFrame
@@ -252,9 +248,8 @@ def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
                 detailed_row.update(res_flanker)
                 overview_row["Flanker_Done"] = 1
             except ValueError as err:
-                warnings.warn(
-                    f"[{session.name}] Flanker test skipped: {err!s}",
-                    category=UserWarning,
+                get_logger(__name__).debug(
+                    f"[{session.name}] Flanker test skipped: {err!s}"
                 )
 
         # WikiVocab (tuple[rt_mean, accuracy])
@@ -276,9 +271,8 @@ def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
                     overview_row[key] = res_wv[key]
                 overview_row["WikiVocab_Done"] = 1
             except ValueError as err:
-                warnings.warn(
-                    f"[{session.name}] WikiVocab test skipped: {err!s}",
-                    category=UserWarning,
+                get_logger(__name__).debug(
+                    f"[{session.name}] WikiVocab test skipped: {err!s}"
                 )
 
         # PLAB (tuple[rt_mean, accuracy])
@@ -299,9 +293,8 @@ def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
                 ]
                 overview_row["PLAB_Done"] = 1
             except ValueError as err:
-                warnings.warn(
-                    f"[{session.name}] PLAB test skipped: {err!s}",
-                    category=UserWarning,
+                get_logger(__name__).debug(
+                    f"[{session.name}] PLAB test skipped: {err!s}"
                 )
 
         # Write per-session detailed CSV to the output directory
@@ -311,9 +304,8 @@ def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
             detailed_path = detailed_out / f"psychometric_details_{session.name}.csv"
             pd.DataFrame([detailed_row]).to_csv(detailed_path, index=False)
         except Exception as exc:
-            warnings.warn(
-                f"Failed to write detailed CSV for {session.name}: {exc}",
-                category=UserWarning,
+            get_logger(__name__).debug(
+                f"Failed to write detailed CSV for {session.name}: {exc}"
             )
 
         overview_rows.append(overview_row)
@@ -344,12 +336,12 @@ def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
     df = df[final_cols]
     df.to_csv(out_path, index=False)
 
-    from ..utils.logging import get_logger
-
     get_logger(__name__).info(f"Wrote overview: {out_path}")
 
     merged_path = create_merged_psychometric_overview(out_path)
     get_logger(__name__).info(f"Wrote merged overview: {merged_path}")
+
+    _warn_missing_tests_in_merged_overview(merged_path)
 
     return out_path
 
@@ -406,8 +398,6 @@ def create_merged_psychometric_overview(overview_path: Path) -> Path:
         for col in done_cols:
             if group[col].sum() > 1:
                 can_merge = False
-                from ..utils.logging import get_logger
-
                 get_logger(__name__).warning(
                     f"Cannot merge sessions for participant {pid} ({base_sid}): "
                     f"overlapping results for {col}."
@@ -483,6 +473,103 @@ def create_merged_psychometric_overview(overview_path: Path) -> Path:
 
 def _is_valid_folder(folder: Path) -> bool:
     return folder.is_dir() and folder.stem[:3].isdigit() and folder.stem[3] == "_"
+
+
+def _warn_missing_tests_in_merged_overview(merged_path: Path) -> None:
+    """
+    Emit consolidated warnings for missing or unexpected psychometric tests.
+
+    Compares the expected psychometric tests (from the participant config YAMLs)
+    against the ``_Done`` flags in the merged overview and emits at most one
+    warning per category, listing all affected participants together:
+
+    - config says a test is expected, but it was not preprocessed (``_Done`` = 0)
+    - config says a test is absent, but data was preprocessed (``_Done`` > 0)
+
+    Parameters
+    ----------
+    merged_path : Path
+        Path to the merged psychometric overview CSV.
+    """
+    merged_df = read_csv(merged_path, dtype={"participant_id": str})
+    if merged_df.empty:
+        return
+
+    done_cols = [c for c in merged_df.columns if c.endswith("_Done")]
+
+    # Folder name -> _Done columns produced when the test is processed.
+    folder_to_done = {
+        "PLAB": ["PLAB_Done"],
+        "RAN": ["RAN_Done"],
+        "Stroop_Flanker": ["Stroop_Done", "Flanker_Done"],
+        "WMC": ["LWMC_Done"],
+        "WikiVocab": ["WikiVocab_Done"],
+    }
+
+    # Aggregate expected flags across all session-level config files per base SID.
+    config_folder = settings.PSYM_PARTICIPANT_CONFIGS
+    expected_by_base: dict[str, dict[str, bool]] = {}
+    for config_file in config_folder.glob("*.yaml"):
+        try:
+            base_id = Sid(config_file.stem).base_id
+        except (ValueError, TypeError):
+            continue
+        with open(config_file) as f:
+            config_data = yaml.safe_load(f) or {}
+        agg = expected_by_base.setdefault(base_id, {})
+        for yaml_flag in settings.PSYCHOMETRIC_TEST_MAPPING:
+            agg[yaml_flag] = agg.get(yaml_flag, False) or (
+                config_data.get(yaml_flag, False) is True
+            )
+
+    missing_for_expected: dict[str, list[str]] = {}
+    present_but_unexpected: dict[str, list[str]] = {}
+
+    for _, row in merged_df.iterrows():
+        base_id = str(row["session_id"])
+        if base_id not in expected_by_base:
+            continue
+        expected = expected_by_base[base_id]
+        for yaml_flag, folder_name in settings.PSYCHOMETRIC_TEST_MAPPING.items():
+            done_names = [
+                c for c in folder_to_done.get(folder_name, []) if c in done_cols
+            ]
+            if not done_names:
+                continue
+            any_done = any(int(row[c]) > 0 for c in done_names)
+            all_done = all(int(row[c]) > 0 for c in done_names)
+            if expected.get(yaml_flag, False):
+                if not all_done:
+                    missing_for_expected.setdefault(base_id, []).append(folder_name)
+            else:
+                if any_done:
+                    present_but_unexpected.setdefault(base_id, []).append(folder_name)
+
+    logger = get_logger(__name__)
+    if missing_for_expected:
+        lines = [
+            f"  - {pid}: {', '.join(sorted(names))}"
+            for pid, names in sorted(missing_for_expected.items())
+        ]
+        logger.warning(
+            "The following participants are missing expected psychometric tests in "
+            "the merged overview (marked as expected in config, but no results were "
+            "preprocessed):\n%s\nTotal: %d participant(s).",
+            "\n".join(lines),
+            len(missing_for_expected),
+        )
+    if present_but_unexpected:
+        lines = [
+            f"  - {pid}: {', '.join(sorted(names))}"
+            for pid, names in sorted(present_but_unexpected.items())
+        ]
+        logger.warning(
+            "The following participants have psychometric test data in the merged "
+            "overview but are marked as absent (or missing) in config:\n%s\nTotal: "
+            "%d participant(s).",
+            "\n".join(lines),
+            len(present_but_unexpected),
+        )
 
 
 def preprocess_stroop(stroop_flanker_dir: Path) -> dict:
