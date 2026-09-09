@@ -181,6 +181,54 @@ def test_restructure_soft_matching_pt1_data_for_s1_config(psycho_structure):
     assert (out_folder / expected_folder / f"{sid_config}.yaml").exists()
 
 
+def test_restructure_moves_and_cleans_up_source(psycho_structure):
+    config_folder, data_folder, out_folder = psycho_structure
+    sid = "007_ZH_CH_1_PT1"
+
+    config_data = {"plab": True, "ran": True}
+    with open(config_folder / f"{sid}.yaml", "w") as f:
+        yaml.dump(config_data, f)
+
+    (data_folder / "PLAB" / sid).mkdir(parents=True)
+    (data_folder / "PLAB" / sid / "data.csv").touch()
+    (data_folder / "RAN" / sid).mkdir(parents=True)
+    (data_folder / "RAN" / sid / "data.csv").touch()
+
+    fix_psycho_tests_structure(config_folder, data_folder, out_folder)
+
+    # Data is moved (not copied): present in the session folder, gone from the source.
+    assert (out_folder / sid / "PLAB" / "data.csv").exists()
+    assert (out_folder / sid / "RAN" / "data.csv").exists()
+    assert (out_folder / sid / f"{sid}.yaml").exists()
+    assert not (data_folder / "PLAB").exists()
+    assert not (data_folder / "RAN").exists()
+    assert not config_folder.exists()
+
+
+def test_restructure_keeps_orphan_data_with_warning(psycho_structure, caplog):
+    config_folder, data_folder, out_folder = psycho_structure
+    sid = "008_ZH_CH_1_PT1"
+
+    config_data = {"plab": True}
+    with open(config_folder / f"{sid}.yaml", "w") as f:
+        yaml.dump(config_data, f)
+
+    (data_folder / "PLAB" / sid).mkdir(parents=True)
+    (data_folder / "PLAB" / sid / "data.csv").touch()
+    # Orphan data with no matching participant config must be preserved.
+    (data_folder / "WCST" / "999_ZH_CH_1_PT1").mkdir(parents=True)
+    (data_folder / "WCST" / "999_ZH_CH_1_PT1" / "x.csv").touch()
+
+    with caplog.at_level(logging.WARNING):
+        fix_psycho_tests_structure(config_folder, data_folder, out_folder)
+
+    assert (out_folder / sid / "PLAB" / "data.csv").exists()
+    assert not (data_folder / "PLAB").exists()
+    assert (data_folder / "WCST").exists()
+    assert "Leftover data" in caplog.text
+    assert not config_folder.exists()
+
+
 def test_restructure_no_configs_raises_value_error(tmp_path):
     config_folder = tmp_path / "empty_configs"
     config_folder.mkdir()

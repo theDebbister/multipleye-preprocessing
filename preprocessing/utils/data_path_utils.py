@@ -10,6 +10,12 @@ from preprocessing.config import settings
 
 from ..models.sid import Sid
 
+__all__ = [
+    "check_data_collection_exists",
+    "find_psychometric_config_files",
+    "validate_psychometric_data",
+]
+
 
 def _ci_exists(path: Path) -> bool:
     """Check if a path exists, falling back to case-insensitive comparison."""
@@ -60,6 +66,46 @@ def _ci_glob(directory: Path, pattern: str) -> list[Path]:
     ]
 
 
+def find_psychometric_config_files(
+    config_folder: Path,
+    data_folder: Path,
+    is_restructured: bool,
+) -> list[Path]:
+    """
+    Locate the participant configuration YAML files for psychometric tests.
+
+    In the restructured (session-first) layout, each session folder contains its own
+    ``<sid>.yaml`` configuration, so configs are discovered inside ``data_folder``
+    (i.e. ``data_folder/<session>/*.yaml``). For the task-first layout, configs live
+    directly in ``config_folder``. If the restructured layout yields no config files,
+    falls back to the legacy ``config_folder`` location.
+
+    Parameters
+    ----------
+    config_folder : Path
+        The legacy folder containing configuration files (.yaml).
+    data_folder : Path
+        The folder containing the session (or task) data.
+    is_restructured : bool
+        Whether the data is in the session-first (restructured) layout.
+
+    Returns
+    -------
+    list[Path]
+        The discovered config file paths, sorted by name.
+    """
+    if is_restructured and data_folder.exists():
+        session_configs = sorted(
+            config_file
+            for session_folder in data_folder.iterdir()
+            if session_folder.is_dir()
+            for config_file in session_folder.glob("*.yaml")
+        )
+        if session_configs:
+            return session_configs
+    return sorted(config_folder.glob("*.yaml"))
+
+
 def validate_psychometric_data(
     config_folder: Path,
     data_folder: Path,
@@ -93,7 +139,9 @@ def validate_psychometric_data(
     issues = {}
 
     # Find config files
-    config_files = list(config_folder.glob("*.yaml"))
+    config_files = find_psychometric_config_files(
+        config_folder, data_folder, is_restructured
+    )
     if not config_files:
         logger.warning(f"No configuration files ('*.yaml') found in {config_folder}.")
         return issues
@@ -112,7 +160,7 @@ def validate_psychometric_data(
 
         with open(config_file) as f:
             try:
-                config_data = yaml.safe_load(f)
+                config_data = yaml.safe_load(f) or {}
             except yaml.YAMLError as exc:
                 msg = f"Error reading configuration file {config_file}: {exc}"
                 logger.error(msg)

@@ -8,7 +8,6 @@ import yaml
 
 from preprocessing.models.sid import Sid
 from preprocessing.utils import get_logger, validate_psychometric_data
-from preprocessing.utils.file_utils import _copytree
 
 logger = get_logger()
 
@@ -34,6 +33,10 @@ def fix_psycho_tests_structure(
     It identifies tests, organises each participant's test data based on the configuration,
     and relocates data to a per-participant directory format in the `out_folder`.
 
+    The test data and config files are *moved* (not copied) into the session folders.
+    After the restructuring succeeds, the now-empty task-first source folders are removed
+    so the original structure does not remain as a duplicate.
+
     Parameters
     ----------
     config_folder : Path
@@ -55,6 +58,7 @@ def fix_psycho_tests_structure(
     2. Configurations ending with specific session markers ('S1', 'S2')
        are transformed into specific folder names ('PT1', 'PT2') to create session directories.
     3. Any missing tests for a participant are logged to the console.
+    4. Data for sessions that have no matching config file is left in place and logged as a warning.
 
     Raises
     ------
@@ -152,18 +156,79 @@ def fix_psycho_tests_structure(
                             except (ValueError, TypeError):
                                 continue
 
-            # We copy if data actually exists
+            # We move the data if it actually exists
             if old_path.exists():
                 new_test_path = session_folder / folder_name
                 new_test_path.mkdir(parents=True, exist_ok=True)
-                _copytree(old_path, new_test_path, dirs_exist_ok=True)
+                _move_merge(old_path, new_test_path)
 
-        # copy the config file to the new session folder
+        # move the config file to the new session folder
         new_config_path = session_folder / config_file.name
-        shutil.copy(config_file, new_config_path)
+        shutil.move(str(config_file), str(new_config_path))
 
     # Run validation after restructuring
     validate_psychometric_data(config_folder, out_folder, is_restructured=True)
+
+    # Clean up the now-empty task-first source structure.
+    _cleanup_source_after_restructure(config_folder, data_folder)
+
+
+def _move_merge(src: Path, dst: Path) -> None:
+    """Move *src* into *dst*, merging when *dst* already exists."""
+    if not dst.exists():
+        shutil.move(str(src), str(dst))
+        return
+    for item in src.iterdir():
+        shutil.move(str(item), str(dst))
+    shutil.rmtree(src)
+
+
+def _cleanup_source_after_restructure(config_folder: Path, data_folder: Path) -> None:
+    """Remove the source task-first folders after a successful restructure.
+
+    Participant configs and test data are moved (not copied) during the restructure,
+    so the original task-first folders only remain where data had no matching config.
+    Empty folders are removed so the legacy source structure does not stay around as
+    a duplicate; anything left over is logged as a warning.
+    """
+    removed: list[Path] = []
+
+    if config_folder.exists():
+        leftovers = list(config_folder.iterdir())
+        if not leftovers:
+            shutil.rmtree(config_folder)
+            removed.append(config_folder)
+        else:
+            logger.warning(
+                f"Leftover files (not matched to a session config) kept in {config_folder}: "
+                f"{[p.name for p in leftovers]}"
+            )
+
+    if data_folder.exists():
+        for test_root in sorted(
+            data_folder.iterdir(), key=lambda p: p.name, reverse=True
+        ):
+            if not test_root.is_dir():
+                continue
+            entries = list(test_root.iterdir())
+            if not entries:
+                shutil.rmtree(test_root)
+                removed.append(test_root)
+            else:
+                leftover_names = sorted(p.name for p in entries)
+                logger.warning(
+                    f"Leftover data (no matching participant config) kept in {test_root}: "
+                    f"{leftover_names}"
+                )
+        if not any(data_folder.iterdir()):
+            shutil.rmtree(data_folder)
+            removed.append(data_folder)
+
+    if removed:
+        logger.info(
+            "Removed from source after restructure: "
+            + ", ".join(str(p) for p in removed)
+        )
 
 
 def main():

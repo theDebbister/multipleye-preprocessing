@@ -1,6 +1,9 @@
 """Tests for the consolidated wide psychometric results output."""
 
+import logging
+
 import pandas as pd
+import yaml
 
 from preprocessing.config import settings
 from preprocessing.psychometric_tests.preprocess_psychometric_tests import (
@@ -103,3 +106,41 @@ def test_consolidated_output_single_wide_csv(tmp_path, monkeypatch):
     assert merged_path.exists()
     merged = pd.read_csv(merged_path)
     assert len(merged) == 2
+
+
+def test_preprocess_warns_missing_tests_from_session_configs(
+    tmp_path, monkeypatch, caplog
+):
+    sessions_dir = tmp_path / "sessions"
+    sessions_dir.mkdir()
+
+    # Session 001: has RAN data, config additionally expects WikiVocab (no data).
+    s1 = sessions_dir / "001_DE_DE_1_PT1"
+    s1.mkdir()
+    _write_ran_csv(s1)
+    with open(s1 / "001_DE_DE_1_PT1.yaml", "w") as f:
+        yaml.dump(
+            {
+                "plab": False,
+                "ran": True,
+                "stroop_flanker": False,
+                "wmc": False,
+                "wiki_vocab": True,
+            },
+            f,
+        )
+
+    output_dir = tmp_path / "output" / "dcn"
+    monkeypatch.setattr(settings, "PSYCHOMETRIC_TESTS_DIR", sessions_dir)
+    monkeypatch.setattr(settings, "OUTPUT_DIR", output_dir)
+    settings.__dict__["DATA_COLLECTION_NAME"] = "dcn"
+
+    with caplog.at_level(logging.WARNING):
+        preprocess_all_sessions(sessions_dir)
+
+    # Session-folder configs are discovered (no stale 'No configuration files' warning).
+    assert "No configuration files" not in caplog.text
+    # WikiVocab is expected per config but was not preprocessed -> consolidated warning.
+    assert "Participants missing expected psychometric tests" in caplog.text
+    assert "WikiVocab" in caplog.text
+    assert "001_DE_DE_1" in caplog.text

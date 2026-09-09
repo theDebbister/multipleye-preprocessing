@@ -27,6 +27,7 @@ from pandas import DataFrame, read_csv
 from ..config import settings
 from ..models.sid import Sid
 from ..utils import validate_psychometric_data
+from ..utils.data_path_utils import find_psychometric_config_files
 from ..utils.logging import get_logger
 
 
@@ -321,7 +322,7 @@ def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
     merged_path = create_merged_psychometric_overview(out_path)
     get_logger(__name__).info(f"Wrote merged results: {merged_path}")
 
-    _warn_missing_tests_in_merged_overview(merged_path)
+    _warn_missing_tests_in_merged_overview(merged_path, test_session_folder)
 
     return out_path
 
@@ -499,7 +500,9 @@ def _ordered_psychometric_columns(
     return ids + flags + metrics_ordered
 
 
-def _warn_missing_tests_in_merged_overview(merged_path: Path) -> None:
+def _warn_missing_tests_in_merged_overview(
+    merged_path: Path, test_session_folder: Path
+) -> None:
     """
     Emit consolidated warnings for missing or unexpected psychometric tests.
 
@@ -510,10 +513,15 @@ def _warn_missing_tests_in_merged_overview(merged_path: Path) -> None:
     - config says a test is expected, but it was not preprocessed (``_Done`` = 0)
     - config says a test is absent, but data was preprocessed (``_Done`` > 0)
 
+    The config YAMLs are looked up in the session folders of ``test_session_folder``
+    (restructured layout), falling back to the legacy config folder.
+
     Parameters
     ----------
     merged_path : Path
         Path to the merged psychometric overview CSV.
+    test_session_folder : Path
+        The folder containing the per-session psychometric test folders.
     """
     merged_df = read_csv(merged_path, dtype={"participant_id": str})
     if merged_df.empty:
@@ -531,9 +539,11 @@ def _warn_missing_tests_in_merged_overview(merged_path: Path) -> None:
     }
 
     # Aggregate expected flags across all session-level config files per base SID.
-    config_folder = settings.PSYM_PARTICIPANT_CONFIGS
+    config_files = find_psychometric_config_files(
+        settings.PSYM_PARTICIPANT_CONFIGS, test_session_folder, is_restructured=True
+    )
     expected_by_base: dict[str, dict[str, bool]] = {}
-    for config_file in config_folder.glob("*.yaml"):
+    for config_file in config_files:
         try:
             base_id = Sid(config_file.stem).base_id
         except (ValueError, TypeError):

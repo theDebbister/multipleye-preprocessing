@@ -159,6 +159,66 @@ def test_validate_non_sid_compliant(psycho_structure, caplog):
     assert "not SID-compliant" in caplog.text
 
 
+def test_validate_restructured_configs_in_session_folders(psycho_structure, caplog):
+    config_folder, data_folder = psycho_structure
+    sid = "006_ZH_CH_1_PT1"
+
+    # Config lives inside the session folder (restructured layout).
+    (data_folder / sid).mkdir(parents=True)
+    config_data = {"plab": True, "ran": False}
+    with open(data_folder / sid / f"{sid}.yaml", "w") as f:
+        yaml.dump(config_data, f)
+    (data_folder / sid / "PLAB").mkdir(parents=True)
+
+    with caplog.at_level(logging.WARNING):
+        issues = validate_psychometric_data(
+            config_folder, data_folder, is_restructured=True
+        )
+
+    assert not issues
+    assert "No configuration files" not in caplog.text
+
+
+def test_validate_restructured_configs_in_session_folders_missing_warning(
+    psycho_structure, caplog
+):
+    config_folder, data_folder = psycho_structure
+    sid = "007_ZH_CH_1_PT1"
+
+    (data_folder / sid).mkdir(parents=True)
+    config_data = {"wmc": True}
+    with open(data_folder / sid / f"{sid}.yaml", "w") as f:
+        yaml.dump(config_data, f)
+
+    with caplog.at_level(logging.WARNING):
+        issues = validate_psychometric_data(
+            config_folder, data_folder, is_restructured=True
+        )
+
+    assert sid in issues
+    assert "!!! MISSING DATA !!!" in caplog.text
+
+
+def test_validate_empty_config_file_does_not_crash(psycho_structure, caplog):
+    config_folder, data_folder = psycho_structure
+    sid = "008_ZH_CH_1_PT1"
+
+    (data_folder / sid).mkdir(parents=True)
+    # An empty (or all-comment) yaml parses to None; must not crash.
+    (data_folder / sid / f"{sid}.yaml").touch()
+    (data_folder / sid / "PLAB").mkdir(parents=True)
+
+    with caplog.at_level(logging.WARNING):
+        issues = validate_psychometric_data(
+            config_folder, data_folder, is_restructured=True
+        )
+
+    # Empty config parses to None -> treated as no-expected-tests; PLAB data is
+    # therefore "unexpected", not a crash.
+    assert sid in issues
+    assert "but it is marked as False" in caplog.text
+
+
 def test_validate_no_configs(tmp_path, caplog):
     config_folder = tmp_path / "empty"
     config_folder.mkdir()
