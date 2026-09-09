@@ -144,3 +144,33 @@ def test_preprocess_warns_missing_tests_from_session_configs(
     assert "Participants missing expected psychometric tests" in caplog.text
     assert "WikiVocab" in caplog.text
     assert "001_DE_DE_1" in caplog.text
+
+
+def test_preprocess_processes_session_without_config(tmp_path, monkeypatch, caplog):
+    sessions_dir = tmp_path / "sessions"
+    sessions_dir.mkdir()
+
+    # Session 001 has data (RAN) but no participant config YAML.
+    s1 = sessions_dir / "001_DE_DE_1_PT1"
+    s1.mkdir()
+    _write_ran_csv(s1)
+
+    output_dir = tmp_path / "output" / "dcn"
+    monkeypatch.setattr(settings, "PSYCHOMETRIC_TESTS_DIR", sessions_dir)
+    monkeypatch.setattr(settings, "OUTPUT_DIR", output_dir)
+    settings.__dict__["DATA_COLLECTION_NAME"] = "dcn"
+
+    with caplog.at_level(logging.WARNING):
+        preprocess_all_sessions(sessions_dir)
+
+    results_path = output_dir / "psychometric_tests" / "psychometric_results_dcn.csv"
+    df = pd.read_csv(results_path, dtype={"participant_id": str})
+
+    # The data-only session is processed with metadata derived from the folder name.
+    assert len(df) == 1
+    row = df.iloc[0]
+    assert row["session_id"] == "001_DE_DE_1_PT1"
+    assert row["participant_id"] == "001"
+    assert row["RAN_Done"] == 1
+    # No config present -> no consolidated missing-test warning.
+    assert "Participants missing expected psychometric tests" not in caplog.text

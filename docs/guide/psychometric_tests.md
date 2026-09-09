@@ -340,9 +340,12 @@ data/MultiplEYE_SQ_CH_Zurich_1_2025/psychometric-tests-sessions/
 
 If it happens that the data is structured first by the test folder and then by session folder,
 `prepare_language_folder` and the preflight check will detect this and restructure the data
-automatically.
-The `restructure_psycho_tests` CLI tool can still be used as a fallback.
-This can be invoked like this:
+automatically, but only when the data sits in the unzipped-archive layout
+(`psychometric_test_{lang}_{country}_{lab}` and `participant_configs_{lang}_{country}_{lab}`
+folders side by side, as produced by unzipping the provided archives).
+
+If instead the data is laid out directly under a `core_data` folder as shown below, it is not
+detected automatically; run the `restructure_psycho_tests` CLI tool instead:
 
 ```bash
 restructure_psycho_tests
@@ -382,6 +385,12 @@ data/MultiplEYE_SQ_CH_Zurich_1_2025/psychometric-tests-sessions/core_data/
 Usually, the command needs no arguments, if the {ref}`configuration_guide` was correctly set up.
 Otherwise, you can find out how to overwrite the global settings
 by invoking `restructure_psycho_tests --help`.
+
+Session data that has no matching participant config is still moved into a session-first folder:
+a single warning lists every such session, no config YAML is generated, and the session is later
+processed based on whatever data is present. Test data under folders that are not part of the
+psychometric test mapping (for example `WCST`) is left in place in the source and logged.
+
 If one session did not finish all tests, this is no problem.
 For the sessions where this is the case, the tests that do not have data will be logged to the
 console.
