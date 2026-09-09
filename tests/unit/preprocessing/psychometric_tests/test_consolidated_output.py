@@ -174,3 +174,82 @@ def test_preprocess_processes_session_without_config(tmp_path, monkeypatch, capl
     assert row["RAN_Done"] == 1
     # No config present -> no consolidated missing-test warning.
     assert "Participants missing expected psychometric tests" not in caplog.text
+
+
+def _write_partial_wmc_csv(session_dir) -> None:
+    # CSV mirrors a partial run: MU columns absent, OS/SS recorded.
+    wmc_dir = session_dir / "WMC"
+    wmc_dir.mkdir()
+    (wmc_dir / "wmc.csv").write_text(
+        "is_practice,base_text_intertrial.started,"
+        "os_key_resp_recall.corr,os_key_resp_recall.rt,"
+        "os_key_resp_equation.corr,"
+        "ss_key_resp_recall.corr,ss_key_resp_recall.rt,"
+        "ss_key_resp_sentence.corr\n"
+        "False,1,1,10,1,0,5,1\n"
+        "False,,0,20,1,1,15,1\n"
+        "False,2,1,10,1,0,5,1\n"
+        "False,,0,20,1,1,15,1\n"
+    )
+    (wmc_dir / "SSTM-1.dat").write_text("header\nScore 120\n")
+
+
+def test_consolidated_output_partial_lwmc(tmp_path, monkeypatch, caplog):
+    sessions_dir = tmp_path / "sessions"
+    sessions_dir.mkdir()
+
+    # Session 001 has a partial WMC run (MU missing).
+    s1 = sessions_dir / "001_DE_DE_1_PT1"
+    s1.mkdir()
+    _write_partial_wmc_csv(s1)
+    with open(s1 / "001_DE_DE_1_PT1.yaml", "w") as f:
+        yaml.dump(
+            {
+                "plab": False,
+                "ran": False,
+                "stroop_flanker": False,
+                "wmc": True,
+                "wiki_vocab": False,
+            },
+            f,
+        )
+
+    output_dir = tmp_path / "output" / "dcn"
+    monkeypatch.setattr(settings, "PSYCHOMETRIC_TESTS_DIR", sessions_dir)
+    monkeypatch.setattr(settings, "OUTPUT_DIR", output_dir)
+    settings.__dict__["DATA_COLLECTION_NAME"] = "dcn"
+
+    with caplog.at_level(logging.WARNING):
+        preprocess_all_sessions(sessions_dir)
+
+    results_path = output_dir / "psychometric_tests" / "psychometric_results_dcn.csv"
+    df = pd.read_csv(results_path, dtype={"participant_id": str})
+
+    row = df.iloc[0]
+    assert row["session_id"] == "001_DE_DE_1_PT1"
+    # Partial LWMC is still marked done but exposes which subtasks are missing.
+    assert row["LWMC_Done"] == 1
+    assert row["LWMC_MU_Done"] == 0
+    assert row["LWMC_OS_Done"] == 1
+    assert row["LWMC_SS_Done"] == 1
+    assert row["LWMC_SSTM_Done"] == 1
+    assert pd.isna(row["LWMC_MU_score"])
+    assert pd.isna(row["LWMC_Total_score_mean"])
+
+    # The subtask flags also appear in the merged output.
+    merged_path = (
+        output_dir / "psychometric_tests" / "psychometric_results_dcn_merged.csv"
+    )
+    merged = pd.read_csv(merged_path, dtype={"participant_id": str})
+    merged_row = merged.iloc[0]
+    assert merged_row["LWMC_Done"] == 1
+    assert merged_row["LWMC_MU_Done"] == 0
+    assert merged_row["LWMC_SSTM_Done"] == 1
+
+    # The partial run surfaces a warning and is still flagged as missing expected WMC.
+    assert (
+        "LWMC partially preprocessed for '001_DE_DE_1_PT1': missing MU." in caplog.text
+    )
+    assert "Participants missing expected psychometric tests" in caplog.text
+    assert "WMC" in caplog.text
+    assert "001_DE_DE_1" in caplog.text
