@@ -140,6 +140,48 @@ def test_validate_session_normalization(psycho_structure, caplog):
     assert not issues
 
 
+def test_validate_raw_soft_matches_session_suffix(psycho_structure, caplog):
+    config_folder, data_folder = psycho_structure
+    sid_s2 = "005_ZH_CH_1_S2"
+    sid_pt2 = "005_ZH_CH_1_PT2"
+
+    config_data = {"plab": True}
+    with open(config_folder / f"{sid_s2}.yaml", "w") as f:
+        yaml.dump(config_data, f)
+
+    # Raw (task-first) layout: data/PLAB/sid, but folder uses the PT2 spelling.
+    (data_folder / "PLAB" / sid_pt2).mkdir(parents=True)
+
+    with caplog.at_level(logging.WARNING):
+        issues = validate_psychometric_data(
+            config_folder, data_folder, is_restructured=False
+        )
+
+    assert not issues
+    assert caplog.text == ""
+
+
+def test_validate_raw_case_insensitive_language(psycho_structure, caplog):
+    config_folder, data_folder = psycho_structure
+    sid_lower = "005_HR_hr_1_PT1"
+    sid_upper = "005_HR_HR_1_PT1"
+
+    config_data = {"plab": True}
+    with open(config_folder / f"{sid_lower}.yaml", "w") as f:
+        yaml.dump(config_data, f)
+
+    # Raw layout with a different letter case in the language part.
+    (data_folder / "PLAB" / sid_upper).mkdir(parents=True)
+
+    with caplog.at_level(logging.WARNING):
+        issues = validate_psychometric_data(
+            config_folder, data_folder, is_restructured=False
+        )
+
+    assert not issues
+    assert caplog.text == ""
+
+
 def test_validate_non_sid_compliant(psycho_structure, caplog):
     config_folder, data_folder = psycho_structure
     invalid_sid = "invalid"

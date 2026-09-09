@@ -106,6 +106,30 @@ def find_psychometric_config_files(
     return sorted(config_folder.glob("*.yaml"))
 
 
+def _resolve_raw_participant_folder(
+    data_folder: Path, folder_name: str, name: str, config_sid: Sid | None
+) -> Path:
+    """Resolve a participant's raw (task-first) data folder, exact then soft match.
+
+    Mirrors the restructure step so validation reports what the restructure would
+    actually move. Falls back to the exact spelling when no match is found, which
+    produces the standard MISSING DATA warning.
+    """
+    test_type_dir = data_folder / folder_name
+    exact = test_type_dir / name
+    if exact.exists():
+        return exact
+    if config_sid and test_type_dir.exists():
+        for candidate in test_type_dir.iterdir():
+            if candidate.is_dir():
+                try:
+                    if config_sid.equals_soft(Sid(candidate.name)):
+                        return candidate
+                except (ValueError, TypeError):
+                    continue
+    return exact
+
+
 def validate_psychometric_data(
     config_folder: Path,
     data_folder: Path,
@@ -188,7 +212,9 @@ def validate_psychometric_data(
             if is_restructured:
                 test_path = data_folder / matched_folder_name / folder_name
             else:
-                test_path = data_folder / folder_name / config_sid_str
+                test_path = _resolve_raw_participant_folder(
+                    data_folder, folder_name, config_sid_str, config_sid
+                )
 
             if expected is True:
                 if not test_path.exists():
