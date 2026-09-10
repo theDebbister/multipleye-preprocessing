@@ -63,7 +63,7 @@ def eyelink(method):
 class MultipleyeDataCollection:
     participant_data_path: Path | str | None
     crashed_session_ids: list[str] = []
-    skipped_session_ids: list[str] = []
+    skipped_sessions: dict = {}
     num_sessions = 1
     overview = {}
 
@@ -97,7 +97,7 @@ class MultipleyeDataCollection:
         **kwargs,
     ):
         self.sessions: dict[str, Session] = {}
-        self.skipped_session_ids: list[str] = []
+        self.skipped_sessions: dict[str, Session] = {}
         # TODO: in theory this can be multiple languages for the stimuli..
         self.language = stimulus_language
         self.country = country
@@ -266,7 +266,14 @@ class MultipleyeDataCollection:
                                 self.logger.warning(
                                     f"No EDF file found for {item.name}, skipping."
                                 )
-                                self.skipped_session_ids.append(item.name)
+                                self.skipped_sessions[item.name] = Session(
+                                participant_id=int(item.name.split("_")[0]),
+                                session_identifier=item.name,
+                                session_folder_path=Path(item.path),
+                                session_file_path="unkown",
+                                session_file_name="unkown",
+                                is_pilot=is_pilot,
+                            )
                                 continue
 
                             elif len(session_file) > 1:
@@ -1148,6 +1155,61 @@ class MultipleyeDataCollection:
                 session,
             )
 
+        for session in (pbar := tqdm(self.skipped_sessions.keys(), total=len(self.sessions))):
+            pbar.set_description(f"Preparing session {session}")
+            try:
+                p_id = Sid(session).pid
+            except (ValueError, TypeError):
+                p_id = session.split("_")[0] if "_" in session else session
+
+            if "start_after_trial" in session and p_id not in self.crashed_session_ids:
+                self.crashed_session_ids.append(p_id)
+                self.logger.warning(
+                    f"Session {session} started after a trial. Only the completed stimuli will be considered."
+                )
+
+            (
+                self.skipped_sessions[session].completed_stimuli_ids,
+                self.skipped_sessions[session].completed_stimuli_names,
+                self.skipped_sessions[session].stimuli_trial_mapping,
+            ) = self._load_session_completed_stimuli(session)
+            self.skipped_sessions[session].logfile = self._load_session_logfile(session)
+            self.skipped_sessions[
+                session
+            ].randomization_version = self._load_stimulus_order_version_from_logfile(
+                session
+            )
+            self.skipped_sessions[
+                session
+            ].stimulus_order_ids = self._load_session_stimulus_order(
+                session, self.skipped_sessions[session].randomization_version
+            )
+
+            # TODO: lab config should be changeable for each session
+            self.skipped_sessions[session].lab_config = self.lab_configuration
+
+            if (
+                self.skipped_sessions[session].stimulus_order_ids
+                != self.skipped_sessions[session].completed_stimuli_ids
+            ) and p_id not in self.crashed_session_ids:
+                msg = (
+                    f"Stimulus order and completed stimuli do not match for "
+                    f"session {session}. Please check the files carefully."
+                )
+                self.logger.warning(msg)
+                if not hasattr(logging, "_captured_warnings"):
+                    logging._captured_warnings = []  # type: ignore
+                logging._captured_warnings.append(msg)  # type: ignore
+
+            self.skipped_sessions[session].stimuli = self._load_session_stimuli(
+                self.stimulus_dir,
+                self.language,
+                self.country,
+                self.lab_number,
+                self.skipped_sessions[session].randomization_version,
+                session,
+            )
+
     def _load_session_stimuli(
         self,
         stimulus_dir: Path,
@@ -1170,16 +1232,21 @@ class MultipleyeDataCollection:
         :param lab_num: The lab number.
 
         """
+        if session_identifier in self.sessions:
+            session = self.sessions[session_identifier]
+        else:
+            session = self.skipped_sessions[session_identifier]
+
         stimuli = []
         if stimulus_names is None:
             stimulus_names = [
                 name
                 for name, num in settings.STIMULUS_NAME_MAPPING.items()
-                if num in self.sessions[session_identifier].completed_stimuli_ids
+                if num in session.completed_stimuli_ids
             ]
 
         for stimulus_name in stimulus_names:
-            trial_mapping = self.sessions[session_identifier].stimuli_trial_mapping
+            trial_mapping = session.stimuli_trial_mapping
             # get the trial id from the mapping, keys are ids and values are strings
             trial_id = [
                 key for key, value in trial_mapping.items() if value == stimulus_name
@@ -1209,7 +1276,11 @@ class MultipleyeDataCollection:
         :param session_identifier: The session identifier.
         :return: The question order version to correctly map participant, stimulus and question order versions.
         """
-        session_path = self.sessions[session_identifier].session_folder_path
+        if session_identifier in self.sessions:
+            session_path = self.sessions[session_identifier].session_folder_path
+        else:
+            session_path = self.skipped_sessions[session_identifier].session_folder_path
+        
         logfile_path = Path(f"{session_path}/logfiles")
         general_logfile = logfile_path.glob("GENERAL_LOGFILE_*.txt")
         general_logfile = next(general_logfile)
@@ -1238,7 +1309,10 @@ class MultipleyeDataCollection:
         :param session_identifier: The session identifier.
         """
 
-        session_path = self.sessions[session_identifier].session_folder_path
+        if session_identifier in self.sessions:
+            session_path = self.sessions[session_identifier].session_folder_path
+        else:
+            session_path = self.skipped_sessions[session_identifier].session_folder_path
         logfile_folder = Path(f"{session_path}/logfiles")
 
         assert logfile_folder.exists(), (
@@ -1266,7 +1340,11 @@ class MultipleyeDataCollection:
     def _load_session_completed_stimuli(
         self, session_identifier
     ) -> tuple[list, list, dict]:
-        session_path = self.sessions[session_identifier].session_folder_path
+        if session_identifier in self.sessions:
+            session_path = self.sessions[session_identifier].session_folder_path
+        else:
+            session_path = self.skipped_sessions[session_identifier].session_folder_path
+        
         logfile_folder = Path(f"{session_path}/logfiles")
         completed_stim_path = logfile_folder / "completed_stimuli.csv"
 
