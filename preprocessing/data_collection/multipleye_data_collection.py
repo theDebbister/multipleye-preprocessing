@@ -258,6 +258,7 @@ class MultipleyeDataCollection:
                             keep = item.name not in self.excluded_sessions
 
                         if keep:
+                            is_pilot = self.include_pilots and (item in pilots)
                             session_file = list(
                                 Path(item.path).glob("*" + session_file_suffix)
                             )
@@ -267,13 +268,13 @@ class MultipleyeDataCollection:
                                     f"No EDF file found for {item.name}, skipping."
                                 )
                                 self.skipped_sessions[item.name] = Session(
-                                participant_id=int(item.name.split("_")[0]),
-                                session_identifier=item.name,
-                                session_folder_path=Path(item.path),
-                                session_file_path="unkown",
-                                session_file_name="unkown",
-                                is_pilot=is_pilot,
-                            )
+                                    participant_id=int(item.name.split("_")[0]),
+                                    session_identifier=item.name,
+                                    session_folder_path=Path(item.path),
+                                    session_file_path="unkown",
+                                    session_file_name="unkown",
+                                    is_pilot=is_pilot,
+                                )
                                 continue
 
                             elif len(session_file) > 1:
@@ -284,8 +285,6 @@ class MultipleyeDataCollection:
                                 )
                             else:
                                 session_file = session_file[0]
-
-                            is_pilot = self.include_pilots and (item in pilots)
 
                             # When a core and pilot session share the same identifier,
                             # keep the core one (added first) and skip the pilot duplicate.
@@ -1155,7 +1154,9 @@ class MultipleyeDataCollection:
                 session,
             )
 
-        for session in (pbar := tqdm(self.skipped_sessions.keys(), total=len(self.sessions))):
+        for session in (
+            pbar := tqdm(self.skipped_sessions.keys(), total=len(self.sessions))
+        ):
             pbar.set_description(f"Preparing session {session}")
             try:
                 p_id = Sid(session).pid
@@ -1280,7 +1281,7 @@ class MultipleyeDataCollection:
             session_path = self.sessions[session_identifier].session_folder_path
         else:
             session_path = self.skipped_sessions[session_identifier].session_folder_path
-        
+
         logfile_path = Path(f"{session_path}/logfiles")
         general_logfile = logfile_path.glob("GENERAL_LOGFILE_*.txt")
         general_logfile = next(general_logfile)
@@ -1344,7 +1345,7 @@ class MultipleyeDataCollection:
             session_path = self.sessions[session_identifier].session_folder_path
         else:
             session_path = self.skipped_sessions[session_identifier].session_folder_path
-        
+
         logfile_folder = Path(f"{session_path}/logfiles")
         completed_stim_path = logfile_folder / "completed_stimuli.csv"
 

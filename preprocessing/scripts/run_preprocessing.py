@@ -483,38 +483,36 @@ def run_preprocessing(config_path: str | None = None):
             sess.session_identifier, path=settings.OUTPUT_DIR
         )
 
-    #Run comprehension answer processing for skipped sessions
+    # Run comprehension answer processing for skipped sessions
     if settings.RUN_COMPREHENSION_ANSWERS:
         for session_identifier, sess in data_collection.skipped_sessions.items():
             answers_csv = sess.sid.answers_dir / f"{sess.sid}_answers.csv"
             question_order_csv = (
-                                sess.session_folder_path
-                                / "logfiles"
-                                / "question_order_versions.csv"
-                            )
+                sess.session_folder_path / "logfiles" / "question_order_versions.csv"
+            )
             sess.logfile = data_collection._load_session_logfile(session_identifier)
 
-            (_,
-            _,
-            sess.stimuli_trial_mapping,
+            (
+                _,
+                _,
+                sess.stimuli_trial_mapping,
             ) = data_collection._load_session_completed_stimuli(session_identifier)
 
-            parsed_answers = preprocessing.parse_answers_from_logfile(sess.logfile, sess.stimuli_trial_mapping)
+            parsed_answers = preprocessing.parse_answers_from_logfile(
+                sess.logfile, sess.stimuli_trial_mapping
+            )
             source = "logfile"
 
             preprocessing.collect_session_answers(
-            question_order_csv=question_order_csv,
-            stimuli_trial_map=sess.stimuli_trial_mapping,
-            stimuli=sess.stimuli,
-            parsed_answers=parsed_answers,
-            out_path=answers_csv,
-            source=source,
-            completed_stimuli_ids=sess.completed_stimuli_ids,
+                question_order_csv=question_order_csv,
+                stimuli_trial_map=sess.stimuli_trial_mapping,
+                stimuli=sess.stimuli,
+                parsed_answers=parsed_answers,
+                out_path=answers_csv,
+                source=source,
+                completed_stimuli_ids=sess.completed_stimuli_ids,
             )
             sess.answers = True
-
-
-
 
     data_collection.create_dataset_overview(path=settings.OUTPUT_DIR)
     data_collection.parse_participant_data(settings.OUTPUT_DIR / "participant_data.csv")
