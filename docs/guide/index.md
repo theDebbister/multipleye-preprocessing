@@ -2,11 +2,11 @@
 
 # Reference Guide
 
-This guide will walk you through the details of how to use the preprocessing pipeline.
+This guide will walk you through the details of how to use the pEYEpline.
 First, the {ref}`configuration_guide` section will explain the settings that need to be
-configured before running the pipeline.
+configured before running the pEYEpline.
 The {ref}`preprocessing_guide` section includes the most central and computationally expensive steps
-of the pipeline.
+of the pEYEpline.
 Here, the eye-tracking data will be processed.
 The {ref}`reading_measures` section documents the reading measures that can be calculated from
 preprocessed data.

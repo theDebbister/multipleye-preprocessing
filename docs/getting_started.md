@@ -2,19 +2,19 @@
 
 # Getting Started
 
-For the pipeline to function, there are some requirements that need to be met.
-This page explains the setup of the {ref}`pipeline`, how to install the {ref}`eyelink_dev_kit`,
+For the pEYEpline to function, there are some requirements that need to be met.
+This page explains the setup of the {ref}`pEYEpline`, how to install the {ref}`eyelink_dev_kit`,
 and {ref}`running_pipelines`.
-More details on how to use the preprocessing pipeline can be found in the {ref}`reference_guide`.
+More details on how to use the pEYEpline can be found in the {ref}`reference_guide`.
 
 (pipeline_structure)=
 
-## Pipeline
+## pEYEpline
 
-The preprocessing pipeline is written in Python and uses a few dependencies,
+The pEYEpline is written in Python and uses a few dependencies,
 including [`pymovements`](https://pymovements.readthedocs.io/), `polars`, `matplotlib`,
 among others.
-The pipeline itself is not distributed on PyPI and should be used directly from the source code.
+The pEYEpline is not distributed on PyPI and should be used directly from the source code.
 To download the source code,
 you can clone the [
 `MultiplEYE-COST/multipleye-preprocessing`](https://github.com/MultiplEYE-COST/multipleye-preprocessing)
@@ -32,9 +32,9 @@ cd multipleye-preprocessing/
 
 ### Installation
 
-To use the pipeline, we expect you to have python set up on your machine.
+To use the pEYEpline, we expect you to have python set up on your machine.
 Make sure to use an up-to-date python version.
-The pipeline has been developed with `3.13` and up in mind.
+The pEYEpline has been developed with `3.13` and up in mind.
 
 We recommend using `uv` to set up your environment, as it will automatically install the
 dependencies
@@ -59,21 +59,21 @@ as specified in `pyproject.toml`.
    ```
 
 ```{note}
-If you do not want to use `uv`, you can install the pipeline in editable mode:
+If you do not want to use `uv`, you can install the pEYEpline in editable mode:
 ```bash
 pip install -e .
 ```
 
 ## Eye-tracker specific requirements
 
-In order to run the preprocessing pipeline, there are eye-tracker specific libraries required.
+In order to use the pEYEpline, there are eye-tracker specific libraries required.
 At the moment, only EyeLink eye-trackers are supported.
 
 (eyelink_dev_kit)=
 
 ### EyeLink Developers Kit
 
-Before we can {ref}`run the pipelines <running_pipelines>`,
+Before we can {ref}`run the pEYEpline <running_pipelines>`,
 we need to install the EyeLink Developers Kit.
 This is needed to convert files from the proprietary `.edf` format to the parsable `.asc` format,
 the binary `edf2asc` needs to be installed.
@@ -110,7 +110,7 @@ This should show the program's version and usage information.
 
 (running_pipelines)=
 
-## Running the Pipeline
+## Running the pEYEpline
 
 ### Download your MultiplEYE data
 
@@ -128,10 +128,10 @@ You have only been granted access to this folder if you are part of the data col
 
 ### Configuration
 
-The MultiplEYE preprocessing pipeline uses a central configuration system to manage all parameters,
+The MultiplEYE pEYEpline uses a central configuration system to manage all parameters,
 ensuring reproducible and consistent data processing. Before you start processing your data, you need to set up this configuration.
 
-When you run the pipeline for the first time in a new directory, it will create a template called `multipleye_settings_preprocessing.yaml` for you.
+When you run the pEYEpline for the first time in a new directory, it will create a template called `multipleye_settings_preprocessing.yaml` for you.
 
 ```bash
 uv run run_preprocessing
@@ -144,7 +144,7 @@ After it stops, open this file and configure the following parameters:
     - Example: `MultiplEYE_EN_UK_London_1_2026`
     - **Note**: This name has been given to you by the MultiplEYE project.
       It is used to determine data and output paths. If it doesn't match the
-      required 6-part format, the pipeline might fail to resolve certain paths.
+      required 6-part format, the pEYEpline might fail to resolve certain paths.
 - `OVERWRITE`: `true` to reprocess existing data, `false` (default) to only load the output of previously processed sessions instead of recalculation.
 - `EXPERIMENT_TYPE`: `MultiplEYE` (default) or `MeRID`.
 - `INCLUDE_SESSIONS` / `EXCLUDE_SESSIONS`: Optional lists to filter which sessions are processed.
@@ -157,13 +157,13 @@ Please find additional information on the configuration here: {ref}`configuratio
 
 ### Preprocess your data
 
-If it is your first time with the pipeline, you can explore the pipeline step-by-step by processing one session with the [step-by-step Jupyter notebook](https://github.com/MultiplEYE-COST/multipleye-preprocessing/blob/main/preprocessing.ipynb). You can also open the same file locally at `preprocessing.ipynb` in the repo root.
+If it is your first time with the pEYEpline, you can explore it step-by-step by processing one session with the [step-by-step Jupyter notebook](https://github.com/MultiplEYE-COST/multipleye-preprocessing/blob/main/preprocessing.ipynb). You can also open the same file locally at `preprocessing.ipynb` in the repo root.
 
 
-To process several sessions at once, the pipeline can be executed directly from the command line.
-For more detailed information on required data and formats and all the steps of the pipeline please read into the more detailed {ref}`reference_guide` chapter.
+To process several sessions at once, the pEYEpline can be executed directly from the command line.
+For more detailed information on required data and formats and all the steps of the pEYEpline please read into the more detailed {ref}`reference_guide` chapter.
 
-To run the MultiplEye preprocessing pipeline (if you used `uv` for installation and activated the
+To run the pEYEpline (if you used `uv` for installation and activated the
 environment):
 
 ```bash

@@ -57,6 +57,8 @@ html_sidebars = {
     ],
     "index": ["navbar-logo.html", "icon-links.html", "search-button-field.html"],
 }
+html_logo_path = "_static/logo.svg"
+html_favicon = "_static/favicon.svg"
 html_theme_options = {
     "repository_url": "https://github.com/MultiplEYE-COST/multipleye-preprocessing/",
     "use_repository_button": True,
@@ -90,6 +92,10 @@ html_theme_options = {
             "type": "fontawesome",
         },
     ],
+    "logo": {
+        "image_light": "_static/logo.svg",
+        "image_dark": "_static/logo.svg",
+    },
 }
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),

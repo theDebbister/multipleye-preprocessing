@@ -2,9 +2,9 @@
 
 # Psychometric Tests
 
-To obtain results for the psychometric tests, the recorded data has to be processed.
-This page explains the steps involved in the processing. Furthermore, some background information
-about the psychometric tests is provided.
+To obtain results for the psychometric tests, the recorded data has to be processed. This page
+explains the steps involved in the processing. Furthermore, some background information about the
+psychometric tests is provided.
 
 ## Table of Contents
 
@@ -33,9 +33,9 @@ repository. Find details about it in the project's `README.md`.
 ## Theoretical Background
 
 The psychometric tests in the MultiplEYE battery are carefully selected to provide a comprehensive
-assessment of cognitive abilities relevant to language processing and eye-tracking research.
-Each test targets specific cognitive domains while maintaining cross-linguistic validity
-and experimental efficiency.
+assessment of cognitive abilities relevant to language processing and eye-tracking research. Each
+test targets specific cognitive domains while maintaining cross-linguistic validity and experimental
+efficiency.
 
 (lewandowsky_wmc_battery_test)=
 
@@ -43,10 +43,9 @@ and experimental efficiency.
 
 Working Memory Capacity (WMC) is a fundamental cognitive construct that represents the amount of
 information that can be temporarily stored and manipulated to support higher-level cognitive
-processes
-(such as text comprehension). WMC is correlated with
-general intelligence (g-factor), language comprehension, and reading ability {cite:p}`Daneman1980`.
-The Lewandowsky WMC battery assesses two working memory domains (verbal/numerical and spatial)
+processes (such as text comprehension). WMC is correlated with general intelligence (g-factor),
+language comprehension, and reading ability {cite:p}`Daneman1980`. The Lewandowsky WMC battery
+assesses two working memory domains (verbal/numerical and spatial)
 through four complementary tasks:
 
 - **Memory Update (MU)**: Participants continuously update a running memory store with new
@@ -72,14 +71,12 @@ $$\mathrm{Trial\_Score}_{\mathrm{task}} = \frac{\sum \mathrm{correct\_items\_in\
 
 The final task score is the mean of all trial scores:
 
-$$\mathrm{Task\_Score} = \mathrm{mean}(\mathrm{Trial\_Score}_{\mathrm{task}})$$
+$$\mathrm{Task\_Score} = \mathrm{mean} (\mathrm{Trial\_Score}_{\mathrm{task}})$$
 
 For the spatial task is scored on pattern similarity, computed as the sum of the dot-to-dot
-similarities.
-This dot-to-dot similarity is understood by "awarding 2 points for no distance between a recalled
-dot and a presented dot, 1 point for a deviation of one cell in any direction,
-and 0 points if the deviation exceeded one cell".
-Finally, this score is normalized:
+similarities. This dot-to-dot similarity is understood by "awarding 2 points for no distance between
+a recalled dot and a presented dot, 1 point for a deviation of one cell in any direction, and 0
+points if the deviation exceeded one cell". Finally, this score is normalized:
 
 $$\mathrm{SSTM\_Score} = \frac{\mathrm{SSTM\_raw\_score}}{240.0}$$
 
@@ -87,10 +84,10 @@ The total WMC score is the average across all tasks:
 
 $$\mathrm{Total\_Score} = \frac{\mathrm{MU\_Score} + \mathrm{OS\_Score} + \mathrm{SS\_Score} + \mathrm{SSTM\_Score}}{4.0}$$
 
-This implementation processes data from CSV files rather than the original .dat format
-described in the paper, but maintains the same scoring logic and produces equivalent results. For
-the spatial task, we extract the raw score from the .dat file and normalize it by dividing by 240.0,
-consistent with the maximum attainable score in the current version.
+This implementation processes data from CSV files rather than the original .dat format described in
+the paper, but maintains the same scoring logic and produces equivalent results. For the spatial
+task, we extract the raw score from the .dat file and normalize it by dividing by 240.0, consistent
+with the maximum attainable score in the current version.
 
 **Returned Results**:
 
@@ -115,18 +112,16 @@ participant engagement.*
 
 ### Rapid Automatized Naming (RAN)
 
-Rapid Automatized Naming is a classic measure of processing speed and automaticity in
-cognitive retrieval. Originally developed to predict reading ability, RAN assesses the efficiency
-with which participants can access and articulate phonological word forms corresponding to visually
-presented stimuli. The task is described as a "microcosm" of reading as it involves sequential
-shifts of visual attention, lexical access, and articulatory planning {cite:p}`WolfBowers1999`.
-The task requires participants to name a series of familiar items (typically digits or letters) as
-quickly as possible. RAN performance is strongly predictive of reading fluency across languages and
-is
+Rapid Automatized Naming is a classic measure of processing speed and automaticity in cognitive
+retrieval. Originally developed to predict reading ability, RAN assesses the efficiency with which
+participants can access and articulate phonological word forms corresponding to visually presented
+stimuli. The task is described as a "microcosm" of reading as it involves sequential shifts of
+visual attention, lexical access, and articulatory planning {cite:p}`WolfBowers1999`. The task
+requires participants to name a series of familiar items (typically digits or letters) as quickly as
+possible. RAN performance is strongly predictive of reading fluency across languages and is
 considered a marker of the automaticity of cognitive processes {cite:p}`Denckla1976`.
 
-For our data, there are two trials per session.
-Both trials consist of a $5 \times 10$ digit matrix.
+For our data, there are two trials per session. Both trials consist of a $5 \times 10$ digit matrix.
 The results are the times each of the two trials took to complete.
 
 **Returned Results**:
@@ -140,15 +135,14 @@ The results are the times each of the two trials took to complete.
 
 The Stroop test is one of the most widely used measures of cognitive control and inhibitory
 functioning. It demonstrates the phenomenon of interference---when automatic processing (reading)
-conflicts with task demands (color naming). In the color-word Stroop, participants must inhibit
-the automatic tendency to read words while naming the font color. The difference in performance
-between congruent (word matches color) and incongruent (word conflicts with color) trials provides
-a sensitive measure of inhibitory control {cite:p}`Stroop1935`.
+conflicts with task demands (color naming). In the color-word Stroop, participants must inhibit the
+automatic tendency to read words while naming the font color. The difference in performance between
+congruent (word matches color) and incongruent (word conflicts with color) trials provides a
+sensitive measure of inhibitory control {cite:p}`Stroop1935`.
 
-To ensure data quality, reaction times below a minimum threshold (default 200ms) or above a
-maximum threshold (default infinity) are excluded from all calculations (reaction time means,
-accuracy, and trial counts) as they likely represent accidental key presses or lapses in
-attention.
+To ensure data quality, reaction times below a minimum threshold (default 200ms) or above a maximum
+threshold (default infinity) are excluded from all calculations (reaction time means, accuracy, and
+trial counts) as they likely represent accidental key presses or lapses in attention.
 
 **Mathematical Formulas**:
 
@@ -156,7 +150,7 @@ For each condition (incongruent, congruent, neutral), basic metrics are calculat
 
 $$\mathrm{Accuracy}_{\mathrm{condition}} = \frac{\sum \mathrm{correct\_trials}_{\mathrm{condition}}}{\mathrm{total\_trials}_{\mathrm{condition}}}$$
 
-$$\mathrm{RT}_{\mathrm{condition}} = \mathrm{mean}(\mathrm{rt}_{\mathrm{condition}})$$
+$$\mathrm{RT}_{\mathrm{condition}} = \mathrm{mean} (\mathrm{rt}_{\mathrm{condition}})$$
 
 Interference effects (focused on congruent vs incongruent comparison):
 
@@ -199,8 +193,8 @@ goal-directed focus on the target. Like the Stroop, the difference between incon
 conditions provides a measure of cognitive control, but through spatial rather than semantic
 interference {cite:p}`Eriksen1974`.
 
-By default, no minimum reaction time filter is applied to the Flanker task, as processing of
-purely visual stimuli is faster and simpler than semantic processing.
+By default, no minimum reaction time filter is applied to the Flanker task, as processing of purely
+visual stimuli is faster and simpler than semantic processing.
 
 **Mathematical Formulas**:
 
@@ -208,7 +202,7 @@ For each condition (incongruent, congruent), basic metrics are calculated as:
 
 $$\mathrm{Accuracy}_{\mathrm{condition}} = \frac{\sum \mathrm{correct\_trials}_{\mathrm{condition}}}{\mathrm{total\_trials}_{\mathrm{condition}}}$$
 
-$$\mathrm{RT}_{\mathrm{condition}} = \mathrm{mean}(\mathrm{rt}_{\mathrm{condition}})$$
+$$\mathrm{RT}_{\mathrm{condition}} = \mathrm{mean} (\mathrm{rt}_{\mathrm{condition}})$$
 
 Spatial interference effects:
 
@@ -238,11 +232,11 @@ $$\mathrm{RTEffect}_{\mathrm{sec}} = \mathrm{RT}_{\mathrm{incongruent}} - \mathr
 
 ### PLAB (Pimsleur Language Aptitude Battery)
 
-The PLAB test assesses language learning aptitude through a battery of tasks that measure
-different components of language ability. Unlike the other cognitive tests, PLAB specifically
-targets metalinguistic awareness and the ability to consciously infer and apply grammatical rules
-and generalizations. This makes it particularly valuable for research on multilingualism and
-language learning {cite:p}`Pimsleur2004`.
+The PLAB test assesses language learning aptitude through a battery of tasks that measure different
+components of language ability. Unlike the other cognitive tests, PLAB specifically targets
+metalinguistic awareness and the ability to consciously infer and apply grammatical rules and
+generalizations. This makes it particularly valuable for research on multilingualism and language
+learning {cite:p}`Pimsleur2004`.
 
 **Returned Results**:
 
@@ -264,16 +258,15 @@ language learning {cite:p}`Pimsleur2004`.
 WikiVocab is a modern vocabulary assessment that uses items drawn from Wikipedia corpora across
 multiple languages. It provides a cross-linguistically valid measure of vocabulary breadth by
 including both real words and carefully constructed pseudo-words. Vocabulary breadth is
-operationalized as the number of words for which a person has at least partial knowledge.
-The balanced scoring approach (averaging performance on real and pseudo-words) helps control for
+operationalized as the number of words for which a person has at least partial knowledge. The
+balanced scoring approach (averaging performance on real and pseudo-words) helps control for
 individual response tendencies, such as a bias towards accepting or rejecting items, and makes it
 comparable across languages with different writing systems and vocabulary structures {cite:p}
 `vanRijn2023`.
 
-Reaction times are filtered by a minimum threshold (default 200ms) and a maximum threshold
-(default infinity) to exclude extreme responses (e.g., accidental key presses or attention
-lapses). Trials outside this range are excluded from all metrics, including the balanced LexTALE
-score.
+Reaction times are filtered by a minimum threshold (default 200ms) and a maximum threshold (default
+infinity) to exclude extreme responses (e.g., accidental key presses or attention lapses). Trials
+outside this range are excluded from all metrics, including the balanced LexTALE score.
 
 - Large, representative item pools from Wikipedia
 - Balanced scoring controls for response biases
@@ -315,15 +308,14 @@ $$\mathrm{Incorrect\_Correct\_Score} = \frac{\mathrm{Real\_Correct} + \mathrm{Ps
 ## Calculating the Psychometric Tests
 
 As hinted in the {ref}`running_pipelines` section, there are project scripts for the psychometric
-tests.
-But before calculation, the input data must be structured correctly.
+tests. But before calculation, the input data must be structured correctly.
 
 (preparing_data)=
 
 ### Preparing the Data
 
-For each session, there should be a folder containing one subfolder for each test with its data.
-The data should be structured as follows, i.e. for the session identifier (sid)
+For each session, there should be a folder containing one subfolder for each test with its data. The
+data should be structured as follows, i.e. for the session identifier (sid)
 `008_SQ_CH_1_PT2` and data collection identifier `MultiplEYE_SQ_CH_Zurich_1_2025`:
 
 ```text
@@ -363,16 +355,15 @@ data/MultiplEYE_SQ_CH_Zurich_1_2025/psychometric-tests-sessions/
 
 If it happens that the data is structured first by the test folder and then by session folder,
 `prepare_language_folder` and the preflight check will detect this and restructure the data
-automatically.
-The `restructure_psycho_tests` CLI tool can still be used as a fallback.
-This can be invoked like this:
+automatically. The `restructure_psycho_tests` CLI tool can still be used as a fallback. This can be
+invoked like this:
 
 ```bash
 restructure_psycho_tests
 ```
 
-In short, if your data structure looks like below, `restructure_psycho_tests` can format it into
-the desired structure as shown above.
+In short, if your data structure looks like below, `restructure_psycho_tests` can format it into the
+desired structure as shown above.
 
 ```text
 data/MultiplEYE_SQ_CH_Zurich_1_2025/psychometric-tests-sessions/core_data/
@@ -403,22 +394,20 @@ data/MultiplEYE_SQ_CH_Zurich_1_2025/psychometric-tests-sessions/core_data/
 ```
 
 Usually, the command needs no arguments, if the {ref}`configuration_guide` was correctly set up.
-Otherwise, you can find out how to overwrite the global settings
-by invoking `restructure_psycho_tests --help`.
-If one session did not finish all tests, this is no problem.
-For the sessions where this is the case, the tests that do not have data will be logged to the
-console.
-The following calculation has been constructed to handle this case,
-only calculating the results of tests with existing data.
+Otherwise, you can find out how to overwrite the global settings by invoking
+`restructure_psycho_tests --help`. If one session did not finish all tests, this is no problem. For
+the sessions where this is the case, the tests that do not have data will be logged to the console.
+The following calculation has been constructed to handle this case, only calculating the results of
+tests with existing data.
 
 (running_calculations_psychometric)=
 
 ### Running the Calculations
 
-The psychometric test calculations are performed as part of the main preprocessing pipeline
-(via `run_preprocessing`, gated by `RUN_PSYCHOMETRIC_TESTS`), or standalone via the
-`preprocess_psychometric_tests()` function.
-Both process each test separately and combine the results into overview and detailed output files.
+The psychometric test calculations are performed as part of the main pEYEpline (via
+`run_preprocessing`, gated by `RUN_PSYCHOMETRIC_TESTS`), or standalone via the
+`preprocess_psychometric_tests()` function. Both process each test separately and combine the
+results into overview and detailed output files.
 
 #### Output Location
 
@@ -427,10 +416,10 @@ All psychometric test results are written to
 
 #### Overview vs. Detailed Output
 
-The pipeline generates two types of output:
+The pEYEpline generates two types of output:
 
-- **Overview file** (`psychometric_overview_{data_collection_id}.csv`): Contains one row per
-  session with primary metrics as per the original paper outputs.
+- **Overview file** (`psychometric_overview_{data_collection_id}.csv`): Contains one row per session
+  with primary metrics as per the original paper outputs.
 - **Merged overview file** (`psychometric_overview_{data_collection_id}_merged.csv`): Contains one
   row per participant, merging disjoint PT sessions (e.g. PT1 with PT2).
 - **Detailed file** (`psychometric_details_{session_id}.csv`): Per-session CSV with all detailed
@@ -438,7 +427,7 @@ The pipeline generates two types of output:
 
 #### Command Line Usage
 
-The tests can be calculated as part of the full pipeline:
+The tests can be calculated as part of the full pEYEpline:
 
 ```bash
 run_preprocessing --config_path path/to/your_config.yaml
@@ -450,11 +439,10 @@ Or standalone:
 preprocess_psychometric_tests
 ```
 
-For details on how to overwrite the global settings,
-run `preprocess_psychometric_tests --help`.
+For details on how to overwrite the global settings, run `preprocess_psychometric_tests --help`.
 
 #### Data Handling
 
 The calculations automatically handle missing data. If a participant didn't complete certain tests,
-those values will be omitted from the output files and logged to the console.
-This ensures robust processing even with incomplete datasets.
+those values will be omitted from the output files and logged to the console. This ensures robust
+processing even with incomplete datasets.

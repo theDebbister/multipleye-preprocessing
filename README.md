@@ -1,8 +1,16 @@
+<p style="text-align:center;">
+<img width="110%" height="110%" alt="pEYEpline"
+ src="https://raw.githubusercontent.com/MultiplEYE-COST/multipleye-preprocessing/main/docs/_static/logo.svg"
+ onerror="this.onerror=null;this.src='./docs/_static/logo.svg';"/>
+</p>
+
+---
+
 [![Documentation](https://img.shields.io/badge/Documentation-Visit-blue)](https://multipleye-cost.github.io/multipleye-preprocessing/)
 [![GitHub Repository](https://img.shields.io/badge/Source-Code-green)](https://github.com/MultiplEYE-COST/multipleye-preprocessing)
 [![Python Version](https://img.shields.io/badge/Python-3.13+-yellow)](https://www.python.org/)
 
-# MultiplEYE Preprocessing
+# MultiplEYE Preprocessing pEYEpline
 
 > [!TIP]
 > Version
@@ -16,15 +24,15 @@
 > This repository is **stable and actively maintained**. Please:
 > - Keep the repository up-to-date to receive the latest changes, fixes, and improvements
 > - Report issues if you encounter unexpected behavior
-> - Refer to the documentation for the latest information on how to use the pipeline
+> - Refer to the documentation for the latest information on how to use the pEYEpline
 > - Check the
 > - [troubleshooting guide](https://multipleye-cost.github.io/multipleye-preprocessing/troubleshooting/)
     if you encounter any issues
 
-This repository contains the preprocessing pipeline for eye-tracking data and psychometric test
+This repository contains the pEYEpline for eye-tracking data and psychometric test
 scoring from the MultiplEYE project.
 
-If you are running the pipeline and encounter any issues, please check
+If you are running the pEYEpline and encounter any issues, please check
 the [troubleshooting guide](https://multipleye-cost.github.io/multipleye-preprocessing/troubleshooting/).
 
 > [!NOTE]
@@ -43,7 +51,7 @@ workflow:
 run_preprocessing
 ```
 
-This pipeline handles:
+This handles:
 
 - Converting `.edf` to `.asc` format
 - Parsing and validating eye-tracking data
@@ -52,7 +60,7 @@ This pipeline handles:
 - Scoring psychometric tests
 
 > [!TIP]
-> A step-by-step notebook is available in `preprocessing.ipynb` to walk through the pipeline in
+> A step-by-step notebook is available in `preprocessing.ipynb` to walk through the pEYEpline in
 > detail.
 
 > [!IMPORTANT]
@@ -62,7 +70,7 @@ This pipeline handles:
 
 ### 2. Score Psychometric Tests (Standalone)
 
-If you only need to re-score psychometric tests without re-running the full pipeline, use the
+If you only need to re-score psychometric tests without re-running the pEYEpline, use the
 standalone command:
 
 ```bash
@@ -95,8 +103,8 @@ source .venv/bin/activate  # Unix/Mac
 
 | Topic                                                                                                              | Description                                          |
 |--------------------------------------------------------------------------------------------------------------------|------------------------------------------------------|
-| [Getting Started](https://multipleye-cost.github.io/multipleye-preprocessing/getting_started/)                     | Installation, requirements, and running the pipeline |
-| [Preprocessing](https://multipleye-cost.github.io/multipleye-preprocessing/guide/preprocessing/)                   | Detailed preprocessing pipeline documentation        |
+| [Getting Started](https://multipleye-cost.github.io/multipleye-preprocessing/getting_started/)                     | Installation, requirements, and running the pEYEpline |
+| [Preprocessing](https://multipleye-cost.github.io/multipleye-preprocessing/guide/preprocessing/)                   | Detailed pEYEpline documentation        |
 | [Reading Measures](https://multipleye-cost.github.io/multipleye-preprocessing/guide/reading_measures/)             | Reading measures from preprocessed eye-tracking data |
 | [Psychometric Tests](https://multipleye-cost.github.io/multipleye-preprocessing/guide/psychometric_tests/)         | Test descriptions and scoring details                |
 | [Configuration](https://multipleye-cost.github.io/multipleye-preprocessing/guide/configuration/)                   | Configuration file options                           |
@@ -107,7 +115,7 @@ source .venv/bin/activate  # Unix/Mac
 ## Quick Start
 
 1. Update settings in `multipleye_settings_preprocessing.yaml`
-2. Run the full pipeline (eye-tracking + psychometric tests): `run_preprocessing`
+2. Run the full pEYEpline (eye-tracking + psychometric tests): `run_preprocessing`
 3. Re-score psychometric tests standalone (optional): `preprocess_psychometric_tests`
 
 > [!CAUTION]

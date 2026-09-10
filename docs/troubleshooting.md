@@ -2,7 +2,7 @@
 
 # Troubleshooting
 
-This page lists all errors that can occur when running the pipeline. Most of them can be easily
+This page lists all errors that can occur when running the pEYEpline. Most of them can be easily
 solved. For some cases,
 we recommend contacting the MultiplEYE team. Whenever you encounter an error, we ask you to check
 this list first and
@@ -29,7 +29,7 @@ on this list, please reach out.
 :::{dropdown} ValueError: Both 'included_sessions' and 'excluded_sessions' are provided and not empty.
 
 This error occurs when you have both `include_sessions` and `exclude_sessions` defined in your
-configuration file (i.e. `multipleye_settings_preprocessing.yaml`). The pipeline only supports
+configuration file (i.e. `multipleye_settings_preprocessing.yaml`). The pEYEpline only supports
 using one type of filter at a time to avoid ambiguity.
 
 **What to do:**

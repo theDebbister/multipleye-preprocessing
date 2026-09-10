@@ -1,6 +1,6 @@
 (pipeline_stages)=
 
-# Pipeline Stages
+# pEYEpline Stages
 
 This page documents each preprocessing stage in detail — what goes in, what comes out,
 and what happens along the way. For the broader picture (data layout, output structure),
@@ -53,15 +53,15 @@ old-format psychometric test data that needs restructuring from task-first to se
 
 The function is `prepare_language_folder()` in `scripts.prepare_language_folder`. It also
 copies stimulus images, question images, and configuration files into the output folder so
-the pipeline has everything it needs in one place. If the stimulus folder has changed since
-the last run (e.g. after a team upload), the pipeline detects this automatically and
+the pEYEpline has everything it needs in one place. If the stimulus folder has changed since
+the last run (e.g. after a team upload), the pEYEpline detects this automatically and
 re-copies everything on the next run.
 
 (preprocessing_step_1)=
 
 ## Stage 1: Preflight Check
 
-**Validate every input file before the pipeline touches any data.** This catches missing
+**Validate every input file before the pEYEpline touches any data.** This catches missing
 files early rather than failing midway. It checks that the stimulus XLSX files exist, every
 session has its EDF and logfiles, all participant IDs appear in the stimulus order table,
 and psychometric test folders are present if expected.
@@ -75,14 +75,14 @@ issues in one go. File matching is case-insensitive because operating systems di
 ## Stage 2: EDF to ASC
 
 **Convert EyeLink binary files to readable ASCII.** EyeTrackers record in `.edf` format,
-which is proprietary. The pipeline calls the `edf2asc` binary from the EyeLink SDK to
+which is proprietary. The pEYEpline calls the `edf2asc` binary from the EyeLink SDK to
 produce `.asc` files that contain both the gaze samples and the timestamped messages that
 encode trial structure.
 
 The method is `MultipleyeDataCollection.convert_edf_to_asc()`. It runs the binary with
 flags `-input -ftime -p <output_dir> -y` and copies the result to `asc/<sid>/<sid>.asc`.
 If the ASC already exists and `FORCE_RECONVERT_ASC` is off, it skips. The `edf2asc` binary
-cannot be distributed with this pipeline due to licensing.
+cannot be distributed with the pEYEpline due to licensing.
 See the {ref}`installation instructions <eyelink_dev_kit>` for how to obtain it from SR Research.
 
 (preprocessing_step_3)=
@@ -91,7 +91,7 @@ See the {ref}`installation instructions <eyelink_dev_kit>` for how to obtain it 
 
 **Load everything about a session: what stimuli were read, what the logfiles say, and
 which randomisation version was used.** This is where the raw session folder gets turned
-into a rich `Session` object with all its metadata. The pipeline reads `completed_stimuli.csv`
+into a rich `Session` object with all its metadata. The pEYEpline reads `completed_stimuli.csv`
 to know which trials count, parses the ASC messages to get timestamps and reading times,
 loads the experiment logfile for trial details, extracts the stimulus order version from
 the general logfile, and builds a full list of `Stimulus` objects with their AOIs and
@@ -107,7 +107,7 @@ accordingly.
 ## Stage 4: Gaze Data Loading
 
 **Turn the ASC file into a structured gaze object with trials, pages, and activities.**
-The pipeline uses `pymovements.gaze.from_asc()` with a set of regex patterns that decode
+The pEYEpline uses `pymovements.gaze.from_asc()` with a set of regex patterns that decode
 the experiment's message format. Each `start_recording_...` message marks a new recording
 segment: reading a page, answering a question, or rating a stimulus. The patterns pull out
 the trial number, stimulus name, page number, and activity type.
@@ -125,7 +125,7 @@ The entry points are `load_gaze_data()` and `load_trial_level_raw_data()` in `io
 
 **Convert raw pixels to visual degrees and compute gaze velocity.** Raw eye-tracker
 coordinates are in pixels, which means nothing without knowing the screen size and viewing
-distance. The pipeline converts them to degrees of visual angle using the lab's hardware
+distance. The pEYEpline converts them to degrees of visual angle using the lab's hardware
 settings (`LabConfig`). Then it computes velocity with a Savitzky-Golay filter — two passes,
 50 ms window, polynomial degree 2. This cleaned signal is what the event detectors need.
 
@@ -137,7 +137,7 @@ All of this happens in `signals.preprocess.preprocess_gaze()`.
 
 **Find fixations using a velocity threshold.** The I-VT algorithm marks samples below
 20 deg/s as fixation and groups consecutive ones. The minimum fixation duration is 100 ms.
-For each fixation found, the pipeline computes its centroid location and spatial dispersion.
+For each fixation found, the pEYEpline computes its centroid location and spatial dispersion.
 
 The function is `events.detect.detect_fixations()`. Results are saved as per-trial CSVs
 in `fixations/<sid>/`.
@@ -171,8 +171,8 @@ as scanpath CSVs in `scanpaths/<sid>/`.
 ## Stage 9: Reading Measures
 
 **Calculate word-level eye-movement measures from the scanpath.** This is where the
-pipeline produces the numbers that most reading researchers care about: how long did
-someone look at a word, did they regress, did they refixate. The pipeline first annotates
+pEYEpline produces the numbers that most reading researchers care about: how long did
+someone look at a word, did they regress, did they refixate. The pEYEpline first annotates
 fixations with run IDs and pass flags (first-pass vs regression), then computes measures
 for each word.
 
@@ -191,7 +191,7 @@ were correct.** The primary source is the ASC file itself — the experiment sof
 `preliminary_answer`, `final_answer_given_is_...`, and `answer_given_is_correct:...`
 messages with millisecond timestamps. These give you both response times and accuracy.
 
-If ASC messages are unavailable (some data collections have this gap), the pipeline falls
+If ASC messages are unavailable (some data collections have this gap), the pEYEpline falls
 back to the EXPERIMENT logfile, which has the final answer and correctness but no response
 times. A warning is logged in that case.
 
@@ -242,7 +242,7 @@ their tests don't overlap.
 
 **Everything is controlled by a single YAML file and a global `Settings` object.**
 The config sets the data collection name, which stages to run, quality thresholds, and
-logging verbosity. The pipeline looks for it in this order:
+logging verbosity. The pEYEpline looks for it in this order:
 
 1. `--config_path` argument
 2. `MULTIPLEYE_CONFIG` environment variable
@@ -264,7 +264,7 @@ The main data classes form a hierarchy: `MultipleyeDataCollection` owns a dict o
 two-session experiments, `MeridDataCollection` extends the base class and overrides only
 the stimulus order logic.
 
-**The pipeline caches aggressively.** Every stage checks whether its output already
+**The pEYEpline caches aggressively.** Every stage checks whether its output already
 exists on disk. If it does and `recalculate` is false, the stage loads the cached result
 instead of recomputing. The number of cached files is validated against the list of
 completed stimuli to catch partial or corrupted runs.

@@ -2,7 +2,7 @@
 
 # Technical Architecture
 
-This page covers the data layout, pipeline philosophy, and output structure.
+This page covers the data layout, pEYEpline philosophy, and output structure.
 For a detailed stage-by-stage breakdown, see {ref}`pipeline_stages`.
 
 (multiplEYE_data_structure)=
@@ -51,7 +51,7 @@ means participant 015, Croatian, lab Zagreb 1, eye-tracking session 1.
 Session types are `S` / `ET` for eye-tracking and `PT` for psychometric tests.
 The participant ID is always three digits and unique only within a dataset.
 
-**The pipeline works session-by-session and assumes a fixed set of logfiles per session.**
+**The pEYEpline works session-by-session and assumes a fixed set of logfiles per session.**
 Each session folder must contain an EDF (or ASC) file and a `logfiles/` subfolder with:
 
 - `completed_stimuli.csv` â€” which stimuli the participant actually read
@@ -64,11 +64,11 @@ The AOI files (`{stimulus}_aoi.csv` and `{stimulus}_aoi_questions.csv`) define w
 character-level interest areas per stimulus. The config folder contains the lab hardware
 settings, the stimulus order randomisation table, and the experiment metadata form.
 
-## Pipeline Philosophy
+## pEYEpline Philosophy
 
 **Every stage reads the output of the previous stage and can be toggled on or off.**
 The configuration YAML controls which stages run. Output files are cached on disk; when
-`recalculate: false` the pipeline skips recomputation and validates file counts against the
+`recalculate: false` the pEYEpline skips recomputation and validates file counts against the
 expected number of completed stimuli.
 
 **Two experiment types are supported through the same interface.** `MultiplEYE` uses one
@@ -76,7 +76,7 @@ session per participant. `MeRID` splits the stimulus order across two sessions â
 `MeridDataCollection` overrides the stimulus loading logic while keeping everything else
 identical.
 
-**The pipeline is batch-oriented.** It discovers all sessions in a data collection, runs a
+**The pEYEpline is batch-oriented.** It discovers all sessions in a data collection, runs a
 preflight check on all of them, converts EDFs to ASC, loads session-level metadata, and
 then loops over each session for the heavy computation (gaze processing, event detection,
 reading measures, answers, sanity checks). Psychometric tests run once at the end over all
