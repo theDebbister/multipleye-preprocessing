@@ -73,7 +73,7 @@ At the moment, only EyeLink eye-trackers are supported.
 
 ### EyeLink Developers Kit
 
-Before we can {ref}`run the pipelines <running_pipelines>`,
+Before we can {ref}`run the pEYEpline <running_pipelines>`,
 we need to install the EyeLink Developers Kit.
 This is needed to convert files from the proprietary `.edf` format to the parsable `.asc` format,
 the binary `edf2asc` needs to be installed.

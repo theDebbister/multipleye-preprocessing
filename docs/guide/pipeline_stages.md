@@ -1,6 +1,6 @@
 (pipeline_stages)=
 
-# Pipeline Stages
+# pEYEpline Stages
 
 This page documents each preprocessing stage in detail — what goes in, what comes out,
 and what happens along the way. For the broader picture (data layout, output structure),
