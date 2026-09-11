@@ -1714,8 +1714,7 @@ def _find_one_filetype_with_columns(
     Raises
     ------
     ValueError
-        If no CSV files with the required columns, or (in strict mode) multiple such files
-        are found.
+        If no CSV files with the required columns are found.
     ValueError
         If NaN values are found in required columns and ``allow_nan`` is False.
     """
@@ -1770,19 +1769,15 @@ def _find_one_filetype_with_columns(
             f"No CSV files with the required columns {columns} were found in '{display_path}'.{details}"
         )
 
+    # With multiple candidate runs it is ambiguous which one reflects the actual
+    # measurement, so prefer the most recently dated run. Files are named
+    # ``<experiment>_<participant>_<date>_<time>.csv``, so the lexically largest
+    # name is the most recent run. In partial mode the number of present columns
+    # only breaks ties.
     if read_all_columns:
-        if len(valid_csvs) > 1:
-            valid_csvs_sorted = sorted([f.name for f in valid_csvs])
-            raise ValueError(
-                f"Multiple CSV files with the required columns {columns} were found in '{display_path}': "
-                f"{valid_csvs_sorted}. Please ensure only one valid results file is present."
-            )
-        chosen = valid_csvs[0]
+        chosen = max(valid_csvs, key=lambda c: c.name)
         selected_cols = columns
     else:
-        # Partial mode: with multiple candidate runs it is ambiguous which one
-        # reflects the actual measurement, so prefer the most recently dated run and
-        # only use the number of present columns as a tie-break.
         chosen = max(
             valid_csvs,
             key=lambda c: (c.name, match_count.get(c.name, 0)),
@@ -1790,17 +1785,18 @@ def _find_one_filetype_with_columns(
         selected_cols = [
             col for col in columns if col in read_csv(chosen, nrows=0).columns
         ]
-        if len(valid_csvs) > 1:
-            matched_names = sorted(c.name for c in valid_csvs)
-            get_logger(__name__).warning(
-                "Multiple CSV files with WMC data were found in '%s': %s. "
-                "It is ambiguous which one reflects the actual run. Using the "
-                "most recent one: '%s'. Please check the lab session documentation "
-                "or ask the experimenter which file is correct.",
-                display_path,
-                ", ".join(matched_names),
-                chosen.name,
-            )
+
+    if len(valid_csvs) > 1:
+        matched_names = sorted(c.name for c in valid_csvs)
+        get_logger(__name__).warning(
+            "Multiple CSV files with data were found in '%s': %s. "
+            "It is ambiguous which one reflects the actual run. Using the "
+            "most recent one: '%s'. Please check the lab session documentation "
+            "or ask the experimenter which file is correct.",
+            display_path,
+            ", ".join(matched_names),
+            chosen.name,
+        )
 
     df = read_csv(chosen, usecols=selected_cols)
     if df.empty:

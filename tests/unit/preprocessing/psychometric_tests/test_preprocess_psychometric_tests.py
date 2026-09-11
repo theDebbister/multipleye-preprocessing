@@ -338,13 +338,17 @@ def test__reaction_time_accuracy_grouped_missing_column(group_by_col, expect_err
             r"No CSV files with the required columns \['a'\] were found in 'session'.\nChecked: 'bad.csv'",
             None,
         ),
-        # Multiple CSVs that both match -> ValueError with file names
+        # Multiple CSVs that both match -> most recent run is chosen (lexically largest)
         (
             [("a1.csv", "u,v\n", "1,2\n"), ("a2.csv", "u,v,w\n", "3,4,5\n")],
             ["u", "v"],
             False,
-            r"Multiple CSV files with the required columns \['u', 'v'\] were found in 'session': \['a1.csv', 'a2.csv'\]",
             None,
+            lambda df: (
+                list(df.columns) == ["u", "v"]
+                and df.shape == (1, 2)
+                and df["u"].iloc[0] == 3
+            ),
         ),
         # Header-only CSV that has the required columns -> ValueError (no data rows)
         (
@@ -405,6 +409,36 @@ def test__find_one_filetype_with_columns(
     else:
         df = _find_one_filetype_with_columns(folder, required_cols, allow_nan=allow_nan)
         assert check(df)
+
+
+def test__find_one_filetype_with_columns_multiple_runs_warns_and_picks_latest(
+    tmp_path: Path, make_text_file, monkeypatch
+):
+    # Several qualifying runs: the most recently dated (lexically largest) file is
+    # used and a warning lists all candidates and the chosen file.
+    monkeypatch.setattr(settings, "PSYCHOMETRIC_TESTS_DIR", tmp_path)
+    folder = tmp_path / "session"
+    folder.mkdir()
+    make_text_file(folder / "run_2025-01-01_10-00-00.csv", header="u,v\n", body="1,2\n")
+    make_text_file(folder / "run_2025-02-01_10-00-00.csv", header="u,v\n", body="3,4\n")
+    make_text_file(folder / "run_2025-03-01_10-00-00.csv", header="u,v\n", body="5,6\n")
+
+    with _capture_module_logs() as messages:
+        df = _find_one_filetype_with_columns(folder, ["u", "v"], allow_nan=False)
+
+    # The latest run is chosen.
+    assert df.shape == (1, 2)
+    assert df["u"].iloc[0] == 5
+    assert df["v"].iloc[0] == 6
+
+    joined = "\n".join(messages)
+    assert "Multiple CSV files with data" in joined
+    assert "It is ambiguous" in joined
+    assert "ask the experimenter" in joined
+    assert "run_2025-03-01_10-00-00.csv" in joined
+    # All candidate files are named in the warning.
+    assert "run_2025-01-01_10-00-00.csv" in joined
+    assert "run_2025-02-01_10-00-00.csv" in joined
 
 
 @pytest.mark.parametrize(
@@ -656,25 +690,15 @@ def test_preprocess_ran_basic(tmp_path: Path, make_text_file):
     [
         ("Trial,RT\n", "1,2\n", "No CSV files with the required columns"),
         ("Trial,Reading_Time\n", "1,\n", "NaN values found in required columns"),
-        # Multiple files with required columns
-        (
-            "Trial,Reading_Time\n",
-            "1,2\n",
-            "Multiple CSV files with the required columns",
-        ),
     ],
 )
 def test_preprocess_ran_errors(tmp_path: Path, make_text_file, header, body, error_msg):
     folder = tmp_path / "p4" / "RAN"
-    # Create one or two files depending on error
     make_text_file(folder / "ran1.csv", header=header, body=body)
-    if error_msg.startswith("Multiple"):
-        make_text_file(folder / "ran2.csv", header=header, body=body)
     # The wrapper adds more context, so we match the wrapper's prefix
     if (
         "No CSV files with the required columns" in error_msg
         or "RAN results missing" in error_msg
-        or "Multiple CSV files with the required columns" in error_msg
         or "NaN values found" in error_msg
     ):
         with pytest.raises(ValueError, match=r"RAN \(Rapid Naming\) results missing"):
@@ -682,6 +706,28 @@ def test_preprocess_ran_errors(tmp_path: Path, make_text_file, header, body, err
     else:
         with pytest.raises(ValueError, match=error_msg):
             preprocess_ran(folder)
+
+
+def test_preprocess_ran_multiple_runs_uses_most_recent(tmp_path: Path, make_text_file):
+    folder = tmp_path / "p4" / "RAN"
+    make_text_file(
+        folder / "ran_2025-01-01_10-00-00.csv",
+        header="Trial,Reading_Time\n",
+        body="1,2.5\n2,3.5\n",
+    )
+    make_text_file(
+        folder / "ran_2025-02-01_10-00-00.csv",
+        header="Trial,Reading_Time\n",
+        body="1,20.0\n2,30.0\n",
+    )
+
+    with _capture_module_logs() as messages:
+        out = preprocess_ran(folder)
+
+    # The most recent run is used instead of raising on multiple candidates.
+    assert out["RAN_practice_rt_sec"] == pytest.approx(20.0)
+    assert out["RAN_experimental_rt_sec"] == pytest.approx(30.0)
+    assert "Multiple CSV files with data" in "\n".join(messages)
 
 
 @pytest.mark.parametrize(
@@ -963,7 +1009,7 @@ def test_preprocess_lwmc_multiple_csvs_picks_most_recent(
     assert math.isnan(out["LWMC_Total_score_mean"])
 
     joined = "\n".join(messages)
-    assert "Multiple CSV files with WMC data" in joined
+    assert "Multiple CSV files with data" in joined
     assert "It is ambiguous" in joined
     assert "ask the experimenter" in joined
     assert "ZHCH1_001_PT2_2025-03-17_19-36-24.csv" in joined
