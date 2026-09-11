@@ -581,6 +581,35 @@ class Settings:
         #: Event name for saccades.
         self.SACCADE = "saccade"
 
+        # --- EVENT DETECTION ---
+
+        #: Fixation detection method passed to pymovements (e.g. "ivt", "idt").
+        self.FIXATION_METHOD = "ivt"
+
+        #: Minimum fixation duration in milliseconds.
+        self.FIXATION_MINIMUM_DURATION_MS = 100
+
+        #: Velocity threshold for IVT fixation detection in degrees/second.
+        self.FIXATION_VELOCITY_THRESHOLD = 20.0
+
+        #: Saccade detection method passed to pymovements (e.g. "microsaccades").
+        self.SACCADE_METHOD = "microsaccades"
+
+        #: Minimum saccade duration in samples.
+        self.SACCADE_MINIMUM_DURATION = 6
+
+        #: Noise-adaptive velocity threshold factor for saccade detection.
+        self.SACCADE_THRESHOLD_FACTOR = 6.0
+
+        #: Velocity estimation method (e.g. "savitzky_golay").
+        self.VELOCITY_ESTIMATION_METHOD = "savitzky_golay"
+
+        #: Length of the velocity smoothing/differentiation window in milliseconds.
+        self.VELOCITY_SMOOTHING_WINDOW_MS = 50
+
+        #: Polynomial degree used in the Savitzky-Golay velocity filter.
+        self.VELOCITY_POLYNOMIAL_DEGREE = 2
+
         # --- PSYCHOMETRIC TEST THRESHOLDS ---
 
         #: Minimum reaction time for WikiVocab in seconds.

@@ -61,6 +61,22 @@ A copy of the config file used for a run is saved to
 `[OUTPUT_DIR]/metadata/[config_filename]` and overwritten on every re-run, so the
 output folder always records the exact settings the data was processed with.
 
+### Event Detection Settings
+
+These control fixation/saccade detection and velocity estimation. The defaults match the
+published MultiplEYE pipeline; **only change them if you are a core developer**. Whatever
+values are used are recorded in the dataset overview `processing_config` section.
+
+- `FIXATION_METHOD`: fixation detection method (`ivt` or `idt`; default: `ivt`).
+- `FIXATION_MINIMUM_DURATION_MS`: minimum fixation duration in milliseconds (default: `100`).
+- `FIXATION_VELOCITY_THRESHOLD`: IVT velocity threshold in degrees/second (default: `20.0`).
+- `SACCADE_METHOD`: saccade detection method (default: `microsaccades`).
+- `SACCADE_MINIMUM_DURATION`: minimum saccade duration in samples (default: `6`).
+- `SACCADE_THRESHOLD_FACTOR`: noise-adaptive velocity threshold factor (default: `6.0`).
+- `VELOCITY_ESTIMATION_METHOD`: velocity estimation method (default: `savitzky_golay`).
+- `VELOCITY_SMOOTHING_WINDOW_MS`: velocity window length in milliseconds (default: `50`).
+- `VELOCITY_POLYNOMIAL_DEGREE`: Savitzky-Golay polynomial degree (default: `2`).
+
 ### Quality Check Thresholds
 
 These settings define the criteria for "GOOD" data quality. **Do not change these** unless you are a
