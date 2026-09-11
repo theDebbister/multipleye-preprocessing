@@ -402,3 +402,67 @@ def test_settings_case_insensitivity(settings_obj, key, value, attr):
     settings_obj._loaded = True  # Prevent auto-loading legacy config
     settings_obj.update({key: value})
     assert getattr(settings_obj, attr) == value
+
+
+def test_load_from_yaml_records_config_source(settings_obj, tmp_path):
+    """Test that load_from_yaml stores the resolved absolute config path."""
+    config_file = tmp_path / "some_config.yaml"
+    config_file.write_text("data_collection_name: MultiplEYE_EN_UK_London_1_2026\n")
+
+    settings_obj.load(path=config_file)
+
+    assert settings_obj._config_source == config_file.resolve()
+
+
+def test_load_from_yaml_config_source_none_before_load(settings_obj):
+    """Test that _config_source starts as None before any load call."""
+    assert settings_obj._config_source is None
+
+
+def test_copy_config_to_writes_file(settings_obj, tmp_path):
+    """Test that copy_config_to writes the config to the metadata subfolder."""
+    config_file = tmp_path / "multipleye_settings_preprocessing.yaml"
+    config_file.write_text("data_collection_name: MultiplEYE_EN_UK_London_1_2026\n")
+
+    settings_obj.load(path=config_file)
+    settings_obj.DATA_COLLECTION_NAME = "MultiplEYE_EN_UK_London_1_2026"
+    output_dir = tmp_path / "preprocessed_data" / "MultiplEYE_EN_UK_London_1_2026"
+    output_dir.mkdir(parents=True)
+
+    dest = settings_obj.copy_config_to(output_dir)
+
+    expected = output_dir / "metadata" / "multipleye_settings_preprocessing.yaml"
+    assert dest == expected
+    assert expected.exists()
+    assert expected.read_text() == config_file.read_text()
+
+
+def test_copy_config_to_overwrites_existing(settings_obj, tmp_path):
+    """Test that a second call to copy_config_to overwrites the existing copy."""
+    config_file = tmp_path / "my_config.yaml"
+    config_file.write_text("data_collection_name: MultiplEYE_EN_UK_London_1_2026\n")
+
+    settings_obj.load(path=config_file)
+    output_dir = tmp_path / "preprocessed_data" / "MultiplEYE_EN_UK_London_1_2026"
+    output_dir.mkdir(parents=True)
+
+    settings_obj.copy_config_to(output_dir)
+    config_file.write_text(
+        "data_collection_name: MultiplEYE_EN_UK_London_1_2026\nnew_key: true\n"
+    )
+    settings_obj.copy_config_to(output_dir)
+
+    dest = output_dir / "metadata" / "my_config.yaml"
+    assert dest.read_text() == config_file.read_text()
+
+
+def test_copy_config_to_no_source_logs_warning(tmp_path, caplog):
+    """Test that copy_config_to warns when no config source was recorded."""
+    from preprocessing.config import Settings
+
+    s = Settings()
+    with caplog.at_level(logging.WARNING):
+        dest = s.copy_config_to(tmp_path)
+
+    assert dest is None
+    assert "No config source path recorded" in caplog.text

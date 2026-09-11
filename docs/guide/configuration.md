@@ -57,6 +57,10 @@ Settings are divided into user-configurable parameters and internal constants.
 - `OUTPUT_DIR`: The path where preprocessed data will be saved. By default, this is
   `preprocessed_data/[DATA_COLLECTION_NAME]`.
 
+A copy of the config file used for a run is saved to
+`[OUTPUT_DIR]/metadata/[config_filename]` and overwritten on every re-run, so the
+output folder always records the exact settings the data was processed with.
+
 ### Quality Check Thresholds
 
 These settings define the criteria for "GOOD" data quality. **Do not change these** unless you are a
