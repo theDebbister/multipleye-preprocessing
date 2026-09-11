@@ -69,6 +69,12 @@ class Settings:
         self.__dict__["OUTPUT_DIR"] = Path(value)
 
     @property
+    def DEFAULT_STIMULI_FOLDER(self) -> Path:
+        """The default stimuli folder based on the data collection name."""
+        self._ensure_loaded()
+        return self.DATASET_DIR / f"stimuli_{self.DATA_COLLECTION_NAME}"
+
+    @property
     def _dcn(self) -> Dcn | None:
         """Get the Dcn model instance."""
         name = self.DATA_COLLECTION_NAME
@@ -339,7 +345,7 @@ class Settings:
         #: Whether to use AOI overlay or only stimulus images for plotting.
         self.PLOT_AOI_OVERLAY: bool = False
 
-        #:
+        #: Can be either MultiplEYE or MeRID
         self.EXPERIMENT_TYPE: str = ""
 
         # Defines whether written files will be recalculated, if they already exist.
@@ -386,6 +392,9 @@ class Settings:
 
         #: The expected sampling rate of the eye tracker in Hertz.
         self.EXPECTED_SAMPLING_RATE_HZ: int = 1000
+
+        #: If the language provides custom units of analysis instead of the standard white space delimited word aois
+        self.CUSTOM_UOAS: bool = False
 
         # --- CONSTANTS FOR EXPERIMENT ---
 
@@ -496,7 +505,7 @@ class Settings:
         self.STIMULUS_COL = "stimulus"
 
         #: Column name for the word index.
-        self.WORD_IDX_COL = "word_idx"
+        self.WORD_IDX_COL = "unit_of_analysis_idx"
 
         #: Column name for the character index.
         self.CHAR_IDX_COL = "char_idx"

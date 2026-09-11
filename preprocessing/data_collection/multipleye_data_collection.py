@@ -2110,18 +2110,3 @@ class MultipleyeDataCollection:
                 self.participant_data_path = path
 
             participant_data.to_csv(self.participant_data_path, index=False)
-
-
-if __name__ == "__main__":
-    settings.setup_logging()
-    data_collection_folder = "MultiplEYE_ET_EE_Tartu_1_2025"
-
-    this_repo = Path.cwd().parent
-
-    data_folder_path = this_repo / "data" / data_collection_folder
-
-    multipleye = MultipleyeDataCollection.create_from_data_folder(str(data_folder_path))
-    # multipleye.add_recorded_sessions(data_root= data_folder_path / 'eye-tracking-sessions' / 'core_dataset', convert_to_asc=False, session_folder_regex=r"005_ET_EE_1_ET1")
-    # multipleye.create_gaze_frame("005_ET_EE_1_ET1")
-    multipleye.create_sanity_check_report(["005_ET_EE_1_ET1", "006_ET_EE_1_ET1"])
-    multipleye.create_experiment_frame("005_ET_EE_1_ET1")

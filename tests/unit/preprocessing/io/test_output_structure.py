@@ -72,9 +72,9 @@ def dummy_gaze():
                 "height": [10.0, 10.0],
                 "char_idx_in_line": [1, 1],
                 "line_idx": [1, 1],
-                "word_idx": [1, 1],
-                "word_idx_in_line": [1, 1],
-                "word": ["a", "b"],
+                "unit_of_analysis_idx": [1, 1],
+                "unit_of_analysis_idx_in_line": [1, 1],
+                "unit_of_analysis": ["a", "b"],
             }
         )
     )

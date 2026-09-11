@@ -154,9 +154,9 @@ def save_scanpaths(sid: Sid, data: pm.Gaze) -> None:
             "char_idx_in_line",
             "line_idx",
             "page",
-            "word_idx",
-            "word_idx_in_line",
-            "word",
+            "unit_of_analysis_idx",
+            "unit_of_analysis_idx_in_line",
+            "unit_of_analysis",
         ]
         df.write_csv(directory / name)
 

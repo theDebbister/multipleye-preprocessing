@@ -19,7 +19,12 @@ def all_tokens_from_aois(
 
     return (
         aois.select(
-            [settings.TRIAL_COL, settings.PAGE_COL, settings.WORD_IDX_COL, "word"]
+            [
+                settings.TRIAL_COL,
+                settings.PAGE_COL,
+                settings.WORD_IDX_COL,
+                "unit_of_analysis",
+            ]
         )
         .unique()
         .sort(settings.WORD_IDX_COL)

@@ -42,6 +42,7 @@ def mock_data_collection_factory(tmp_path, monkeypatch):
                     "page": ["page_1", "page_1", "question_1"],
                     "word": ["word1", " ", "qword1"],
                     "char": ["w", " ", "q"],
+                    "char_idx": [0, 1, 2],
                     "word_idx": [0, 0, 0],
                     "word_idx_in_line": [0, 0, 0],
                     "line_idx": [0, 0, 0],

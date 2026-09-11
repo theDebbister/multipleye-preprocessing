@@ -44,6 +44,9 @@ plot_aoi_overlay: true
 # Whether to copy AOI images overlay to the output directory.
 copy_aoi_images_overlay: false
 
+# Whether this language uses custom units of analysis (aois) instead of the default MultiplEYE aois (white space delimited)
+custom_uoas: false
+
 # ----------------------- Internal Usage -----------------------
 
 # --- LOGGING ---

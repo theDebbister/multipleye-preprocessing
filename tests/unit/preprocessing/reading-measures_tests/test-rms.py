@@ -10,10 +10,10 @@ def test_space_fixation_counts_toward_word(run_pipeline, simple_aois):
             "page": ["page_1"],
             "onset": [100],
             "duration": [200],
-            "word_idx": [0],  # fixation on space belonging to Mali
+            "unit_of_analysis_idx": [0],  # fixation on space belonging to Mali
             "char_idx": [4],  # space after the first word which has 4 chars
             "char": [" "],
-            "word": [" "],
+            "unit_of_analysis": [" "],
         }
     )
 
@@ -22,8 +22,8 @@ def test_space_fixation_counts_toward_word(run_pipeline, simple_aois):
     # 3 words total (Mali, Dy, maybe trailing space word_idx=2)
     assert word_level_table.height == 2
 
-    mali = word_level_table.filter(pl.col("word_idx") == 0)
-    dy = word_level_table.filter(pl.col("word_idx") == 1)
+    mali = word_level_table.filter(pl.col("unit_of_analysis_idx") == 0)
+    dy = word_level_table.filter(pl.col("unit_of_analysis_idx") == 1)
 
     assert mali.select("skipped").item() == 0
     assert dy.select("skipped").item() == 1
@@ -38,16 +38,16 @@ def test_skipped_word(run_pipeline, simple_aois):
             "page": ["page_1"],
             "onset": [100],
             "duration": [200],
-            "word_idx": [0],
+            "unit_of_analysis_idx": [0],
             "char_idx": [1],
             "char": ["a"],
-            "word": ["Mali"],
+            "unit_of_analysis": ["Mali"],
         }
     )
 
     wlt = run_pipeline(simple_aois, gaze)
 
-    skipped = wlt.filter(pl.col("word_idx") == 1)
+    skipped = wlt.filter(pl.col("unit_of_analysis_idx") == 1)
 
     assert skipped.select("TFC").item() == 0
     assert skipped.select("TFT").item() == 0
@@ -68,16 +68,16 @@ def test_two_first_pass_fixations(run_pipeline, simple_aois):
             "page": ["page_1"] * 2,
             "onset": [100, 400],
             "duration": [200, 150],
-            "word_idx": [0, 0],
+            "unit_of_analysis_idx": [0, 0],
             "char_idx": [1, 2],
             "char": ["a", "l"],
-            "word": ["Mali", "Mali"],
+            "unit_of_analysis": ["Mali", "Mali"],
         }
     )
 
     wlt = run_pipeline(simple_aois, gaze)
 
-    mali = wlt.filter(pl.col("word_idx") == 0)
+    mali = wlt.filter(pl.col("unit_of_analysis_idx") == 0)
 
     assert mali.select("TFC").item() == 2
     assert mali.select("TFT").item() == 350
@@ -101,15 +101,15 @@ def test_regression_multiple_rereading(run_pipeline, simple_aois):
             "page": ["page_1"] * 4,
             "onset": [100, 300, 600, 900],
             "duration": [115, 327, 261, 260],
-            "word_idx": [0, 1, 0, 0],
+            "unit_of_analysis_idx": [0, 1, 0, 0],
             "char_idx": [2, 6, 1, 2],
             "char": ["l", "a", "a", "l"],
-            "word": ["Mali", "Magjik", "Mali", "Mali"],
+            "unit_of_analysis": ["Mali", "Magjik", "Mali", "Mali"],
         }
     )
 
     wlt = run_pipeline(simple_aois, gaze)
-    word = wlt.filter(pl.col("word_idx") == 0)
+    word = wlt.filter(pl.col("unit_of_analysis_idx") == 0)
 
     assert word.select("TFC").item() == 3
 

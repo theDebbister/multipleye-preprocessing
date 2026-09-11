@@ -73,6 +73,15 @@ on their local machines and if they can be transferred to the server. If the fil
 :::
 
 
+:::{dropdown} FileNotFoundError: We could not find a matching uoa file for [AOI FILE NAME]. PLease make sure that the uoa file is named exactly as the corresponding aoi file and that it is in your data folder ina folder called 'custom_units_of_analysis'.
+
+This error is raised when you have requests to add custom units of analysis (i.e., you don't want to use the white space delimited words) but it cannot find the corresponding file in the `custom_units_of_analysis` folder. The file name must match exactly with the corresponding AOI file.
+**What to do:**
+- **Check File Naming:** Ensure that the custom units of analysis file is named exactly the same as the corresponding AOI file.
+- **Check File Location:** Ensure that the custom units of analysis file is located in the `custom_units_of_analysis` folder within your data directory.
+
+:::
+
 
 (errors_restructuring)=
 

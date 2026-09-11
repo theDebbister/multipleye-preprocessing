@@ -30,10 +30,10 @@ def simple_aois():
     return pl.DataFrame(
         {
             "page": ["page_1"] * 8,
-            "word_idx": [0, 0, 0, 0, 0, 1, 1, 1],
+            "unit_of_analysis_idx": [0, 0, 0, 0, 0, 1, 1, 1],
             "char": ["M", "a", "l", "i", " ", "D", "y", " "],
             "char_idx": [0, 1, 2, 3, 4, 5, 6, 7],
             "char_idx_in_line": list(range(8)),
-            "word": ["Mali", "Mali", "Mali", "Mali", " ", "Dy", "Dy", " "],
+            "unit_of_analysis": ["Mali", "Mali", "Mali", "Mali", " ", "Dy", "Dy", " "],
         }
     )

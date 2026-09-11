@@ -173,7 +173,7 @@ def annotate_fixations(
             "run_id",
             "is_first_pass",
             "duration",
-            "word",
+            "unit_of_analysis",
             "prev_word_idx",
             "next_word_idx",
             "is_reg_in",
