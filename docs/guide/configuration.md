@@ -2,18 +2,18 @@
 
 # Configuration
 
-The MultiplEYE preprocessing pipeline uses a central configuration system to manage all parameters,
+The MultiplEYE pEYEpline uses a central configuration system to manage all parameters,
 ensuring reproducible and consistent data processing.
 
 ## Loading Precedence
 
-The pipeline searches for configuration in the following order:
+The pEYEpline searches for configuration in the following order:
 
 1. **CLI Argument**: `--config_path your_config.yaml` when running the preprocessing script.
 2. **Environment Variable**: `MULTIPLEYE_CONFIG` pointing to a YAML file.
 3. **Local Default**: `multipleye_settings_preprocessing.yaml` in your current working directory.
 
-**If no configuration is found**, the pipeline will:
+**If no configuration is found**, the pEYEpline will:
 
 1. Copy a template to `multipleye_settings_preprocessing.yaml` in your current directory.
 2. Display a message with instructions.
@@ -23,7 +23,7 @@ You must then edit the file (at least set `data_collection_name`) and rerun the 
 
 ## Initial Setup
 
-When you run the pipeline for the first time in a new directory, it will create a template for you.
+When you run the pEYEpline for the first time in a new directory, it will create a template for you.
 
 ```bash
 uv run run_preprocessing
@@ -42,7 +42,7 @@ Settings are divided into user-configurable parameters and internal constants.
     - Example: `MultiplEYE_EN_UK_London_1_2026`
     - **Note**: This name has been given to you by the MultiplEYE project.
       It is used to determine data and output paths. If it doesn't match the
-      required 6-part format, the pipeline might fail to resolve certain paths.
+      required 6-part format, the pEYEpline might fail to resolve certain paths.
 - `OVERWRITE`: `true` to reprocess existing data, `false` (default) to skip already processed
   sessions.
 - `EXPERIMENT_TYPE`: `MultiplEYE` (default) or `MeRID`.

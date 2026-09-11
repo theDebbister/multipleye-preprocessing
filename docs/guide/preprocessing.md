@@ -4,7 +4,7 @@
 
 ## Data Collection Naming Convention
 
-The MultiplEYE preprocessing pipeline follows a standardized naming convention for data collections
+The MultiplEYE pEYEpline follows a standardized naming convention for data collections
 to ensure consistency across labs and languages. The pattern is:
 
 `[projectName]_[languageISOcode]_[countryISOcode]_[city]_[identifier]_[yearDataCollectionEnd]`
@@ -17,12 +17,12 @@ the Switzerland country code
 Zurich as the city name, 1 as the lab/experiment identifier,
 and 2025 as the year of data collection completion.
 
-## Eye-Tracking Preprocessing Pipeline
+## Eye-Tracking Preprocessing
 
-The main preprocessing pipeline handles the conversion and processing of eye-tracking data from the
+The main pEYEpline handles the conversion and processing of eye-tracking data from the
 proprietary EyeLink format to analysis-ready data.
 
-The pipeline processes data on a session level and consists of several key steps including EDF to
+The pEYEpline processes data on a session level and consists of several key steps including EDF to
 ASC conversion, data parsing, gaze event detection, AOI mapping, and reading measures calculation.
 After all sessions are processed, psychometric tests are calculated (if enabled and data is
 available).
@@ -40,7 +40,7 @@ structure specification, see the {ref}`multiplEYE_data_structure` section.
 ### Running the Preprocessing
 
 ```bash
-# A. Run full preprocessing pipeline (uses default config file)
+# A. Run the pEYEpline (uses default config file)
 run_preprocessing
 
 # B. Or specify a custom config file
@@ -52,7 +52,7 @@ uv run run_preprocessing
 
 ### Output Files
 
-The pipeline generates several types of output files including sample-level CSV files, gaze event
+The pEYEpline generates several types of output files including sample-level CSV files, gaze event
 files, AOI mapping files, and reading measures. Each step produces specific output files with
 standardized naming conventions. For detailed output file specifications and data quality reports,
 please refer to the {ref}`technical_architecture` section.

@@ -5,6 +5,7 @@ import pytest
 from preprocessing.config import settings
 from preprocessing.io.load import (
     load_reading_measures,
+    load_scanpaths,
     load_trial_level_events_data,
     load_trial_level_raw_data,
 )
@@ -118,11 +119,31 @@ def test_save_load_events_structure(tmp_path, dummy_gaze, event_type, sid_str):
 
 
 @pytest.mark.parametrize("sid_str", SID_STRINGS)
-def test_save_scanpaths_structure(tmp_path, dummy_gaze, sid_str):
+def test_save_load_scanpaths_structure(tmp_path, dummy_gaze, sid_str):
     sid = Sid(sid_str)
     save_scanpaths(sid, dummy_gaze)
     assert sid.scanpaths_dir.exists()
     assert (sid.scanpaths_dir / f"{sid!s}_trial_1_Enc_WikiMoon_1_scanpath.csv").exists()
+
+    loaded_gaze = load_scanpaths(gaze=dummy_gaze, sid=sid)
+    aoi_cols = [
+        "char_idx",
+        "char",
+        "top_left_x",
+        "top_left_y",
+        "width",
+        "height",
+        "char_idx_in_line",
+        "line_idx",
+        "word_idx",
+        "word_idx_in_line",
+        "word",
+    ]
+
+    assert all(col in loaded_gaze.events.frame.columns for col in aoi_cols)
+    assert not any(
+        "_right" in col_name for col_name in loaded_gaze.events.frame.columns
+    )
 
 
 @pytest.mark.parametrize("sid_str", SID_STRINGS)

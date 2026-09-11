@@ -546,7 +546,7 @@ class MultipleyeDataCollection:
         session_name: str,
         output_dir: Path | str = "",
         plotting: bool = True,
-        recalculate: bool = settings.RECALCULATE,
+        recalculate: bool | None = None,
     ) -> None:
         """
         Create the sanity checks and reports if for one or multiple sessions.
@@ -565,6 +565,9 @@ class MultipleyeDataCollection:
 
         if not output_dir:
             output_dir = self.output_dir
+
+        if recalculate is None:
+            recalculate = settings.RECALCULATE
 
         session_results = (
             Path(output_dir) / settings.SANITY_CHECKS_FOLDER / session_name

@@ -3,7 +3,7 @@
 # Reading Measures
 
 **Reading measures are word-level eye-movement metrics calculated from AOI-mapped
-fixations.** The pipeline computes them per trial by first annotating fixations with run
+fixations.** The pEYEpline computes them per trial by first annotating fixations with run
 and pass information, then deriving a set of standard measures for each word. The
 implementation lives in `metrics.reading.reading_measures`.
 
@@ -11,7 +11,7 @@ implementation lives in `metrics.reading.reading_measures`.
 
 **Every fixation gets tagged with a run ID, first-pass status, regression flags, and
 neighbouring word indices.** This annotation is the foundation for all measures. The
-pipeline groups fixations by trial, stimulus, and page, then computes:
+pEYEpline groups fixations by trial, stimulus, and page, then computes:
 
 - `run_id` — contiguous fixations on the same word form a run. Each time the reader moves
   to a different word and comes back, a new run starts.
