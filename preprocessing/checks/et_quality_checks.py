@@ -155,7 +155,7 @@ def check_validation_requirements(
                     report_file,
                 )
 
-            elif score < 0.305:
+            elif score < settings.SINGLE_VALIDATION_GOOD_MAX:
                 _report_to_file(
                     f"- ✅ Good validation at {m['time']} with score {m['accuracy_avg']}",
                     report_file,
@@ -164,7 +164,11 @@ def check_validation_requirements(
                 moderate_val = False
                 val_performed = True
                 good_vals += 1
-            elif 0.45 > score >= 0.305:
+            elif (
+                settings.SINGLE_VALIDATION_MODERATE_MAX
+                > score
+                >= settings.SINGLE_VALIDATION_GOOD_MAX
+            ):
                 mes["moderate_vals"].append(
                     f"⚠️ Moderate validation at {m['time']} with score {m['accuracy_avg']}"
                 )
@@ -172,7 +176,7 @@ def check_validation_requirements(
                 bad_val = False
                 moderate_vls += 1
                 mod_tstamp = int(m["time"])
-            elif score >= 0.45:
+            elif score >= settings.SINGLE_VALIDATION_MODERATE_MAX:
                 mes["bad_vals"].append(
                     f"❌ BAD Validation at {m['time']} with score {m['accuracy_avg']}"
                 )
@@ -319,9 +323,7 @@ def check_metadata(
     validation_scores_avg = validations["accuracy_avg"].cast(pl.Float32).to_list()
 
     num_validations = len(validations)
-    report(
-        "Number of validations", num_validations, settings.ACCEPTABLE_NUM_CALIBRATIONS
-    )
+    report("Number of validations", num_validations, settings.ACCEPTABLE_NUM_VALIDATION)
     report(
         "AVG validation scores",
         [round(score, 4) for score in validation_scores_avg],
