@@ -1,3 +1,4 @@
+import sys
 import warnings
 
 from preprocessing.scripts.prepare_language_folder import (
@@ -26,28 +27,41 @@ class MeridDataCollection(MultipleyeDataCollection):
             self.stim_order_versions["participant_id"] == int(p_id)
         ]
         if len(stim_order_version) == 0:
-            self._write_to_logfile(
-                f"Participant ID {p_id} not found in stimulus order versions. Please check the "
-                f"participant IDs in the stimulus order versions file. It is possible that the team did not "
+            print(
+                "\n"
+                "+" + "-" * 175 + "+" + "\n"
+                f" WARNING: Participant ID {p_id} not found in stimulus order versions. Please check the "
+                f" participant IDs in the stimulus order versions file. It is possible that the team did not "
                 f"upload the correct stimulus version from the experiment folder. Extracting version "
-                f"from asc file"
+                f"from asc file. Gaze data may be mapped to the wrong stimuli/AOIs. "
+                f"Please verify that the stimulus folder contains the exact stimuli "
+                f"that were presented to this participant."
+                "\n"
+                f"+" + "-" * 175 + "+",
+                file=sys.stderr,
             )
             version = extract_stimulus_version_number_from_asc(
                 self.sessions[session_identifier].asc_path
             )
 
             if version == logfile_order_version:
-                self._write_to_logfile(
-                    f"Stimulus order version in logfile ({logfile_order_version}) does not match the version "
-                    f"extracted from the asc file ({version}) for participant ID {p_id}. Using the "
-                    f"version from the logfile."
-                )
                 stim_order_version = self.stim_order_versions[
                     self.stim_order_versions["version_number"] == version
                 ]
+                if stim_order_version.empty:
+                    raise ValueError(
+                        f"Stimulus order version {version} extracted from the ASC file "
+                        f"cannot be found in the stimulus order versions CSV. "
+                        f"The team should upload the correct stimulus folder."
+                    )
+
+                self.logger.warning(
+                    "Using the stimulus order version from the ASC file. "
+                    "The team should still upload the correct stimulus folder!"
+                )
 
             else:
-                self._write_to_logfile(
+                self.logger.warning(
                     f"Stimulus order version in logfile ({logfile_order_version}) does not match the version "
                     f"extracted from the asc file ({version}) for participant ID {p_id}. OR no version found in asc file. "
                     f"Please check the files "

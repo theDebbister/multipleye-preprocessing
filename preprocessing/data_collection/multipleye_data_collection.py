@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import warnings
 from datetime import UTC, datetime
 from functools import partial
@@ -161,10 +162,7 @@ class MultipleyeDataCollection:
             self.stimulus_dir / "config" / f"stimulus_order_versions_"
             f"{self.language}_{self.country}_{self.lab_number}.csv"
         )
-        stim_order_versions = pd.read_csv(stim_order_versions)
-        self.stim_order_versions = stim_order_versions[
-            stim_order_versions["participant_id"].notnull()
-        ]
+        self.stim_order_versions = pd.read_csv(stim_order_versions)
 
         if self.stim_order_versions.empty:
             warnings.warn(
@@ -1333,12 +1331,20 @@ class MultipleyeDataCollection:
         ]
 
         if stim_order_version.empty:
-            self.logger.warning(
-                f"Participant ID {p_id} not found in stimulus order versions. Please check the "
-                f"participant IDs in the stimulus order versions file. It is possible that the team did not "
+            print(
+                "\n"
+                "+" + "-" * 175 + "+" + "\n"
+                f" WARNING: Participant ID {p_id} not found in stimulus order versions. Please check the "
+                f" participant IDs in the stimulus order versions file. It is possible that the team did not "
                 f"upload the correct stimulus version from the experiment folder. Extracting version "
-                f"from asc file."
+                f"from asc file. Gaze data may be mapped to the wrong stimuli/AOIs. "
+                f"Please verify that the stimulus folder contains the exact stimuli "
+                f"that were presented to this participant."
+                "\n"
+                f"+" + "-" * 175 + "+",
+                file=sys.stderr,
             )
+
             version = extract_stimulus_version_number_from_asc(
                 self.sessions[session_identifier].asc_path
             )
