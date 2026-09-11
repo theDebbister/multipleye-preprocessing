@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import logging
 import math
+from contextlib import contextmanager
 from pathlib import Path
 
 import pandas as pd
@@ -18,6 +20,35 @@ from preprocessing.psychometric_tests.preprocess_psychometric_tests import (
     preprocess_stroop,
     preprocess_wikivocab,
 )
+
+
+class _MessageRecorderHandler(logging.Handler):
+    """Handler that collects formatted log messages into a list."""
+
+    def __init__(self) -> None:
+        super().__init__(level=logging.NOTSET)
+        self.messages: list[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.messages.append(self.format(record))
+
+
+@contextmanager
+def _capture_module_logs():
+    """Capture log records emitted by the psychometric tests module logger.
+
+    A handler is attached to the module logger itself because the pipeline's
+    ``setup_logging(force=True)`` clears root handlers (and with them ``caplog``).
+    """
+    logger = logging.getLogger(
+        "preprocessing.psychometric_tests.preprocess_psychometric_tests"
+    )
+    handler = _MessageRecorderHandler()
+    logger.addHandler(handler)
+    try:
+        yield handler.messages
+    finally:
+        logger.removeHandler(handler)
 
 
 @pytest.mark.parametrize(
@@ -307,13 +338,17 @@ def test__reaction_time_accuracy_grouped_missing_column(group_by_col, expect_err
             r"No CSV files with the required columns \['a'\] were found in 'session'.\nChecked: 'bad.csv'",
             None,
         ),
-        # Multiple CSVs that both match -> ValueError with file names
+        # Multiple CSVs that both match -> most recent run is chosen (lexically largest)
         (
             [("a1.csv", "u,v\n", "1,2\n"), ("a2.csv", "u,v,w\n", "3,4,5\n")],
             ["u", "v"],
             False,
-            r"Multiple CSV files with the required columns \['u', 'v'\] were found in 'session': \['a1.csv', 'a2.csv'\]",
             None,
+            lambda df: (
+                list(df.columns) == ["u", "v"]
+                and df.shape == (1, 2)
+                and df["u"].iloc[0] == 3
+            ),
         ),
         # Header-only CSV that has the required columns -> ValueError (no data rows)
         (
@@ -374,6 +409,36 @@ def test__find_one_filetype_with_columns(
     else:
         df = _find_one_filetype_with_columns(folder, required_cols, allow_nan=allow_nan)
         assert check(df)
+
+
+def test__find_one_filetype_with_columns_multiple_runs_warns_and_picks_latest(
+    tmp_path: Path, make_text_file, monkeypatch
+):
+    # Several qualifying runs: the most recently dated (lexically largest) file is
+    # used and a warning lists all candidates and the chosen file.
+    monkeypatch.setattr(settings, "PSYCHOMETRIC_TESTS_DIR", tmp_path)
+    folder = tmp_path / "session"
+    folder.mkdir()
+    make_text_file(folder / "run_2025-01-01_10-00-00.csv", header="u,v\n", body="1,2\n")
+    make_text_file(folder / "run_2025-02-01_10-00-00.csv", header="u,v\n", body="3,4\n")
+    make_text_file(folder / "run_2025-03-01_10-00-00.csv", header="u,v\n", body="5,6\n")
+
+    with _capture_module_logs() as messages:
+        df = _find_one_filetype_with_columns(folder, ["u", "v"], allow_nan=False)
+
+    # The latest run is chosen.
+    assert df.shape == (1, 2)
+    assert df["u"].iloc[0] == 5
+    assert df["v"].iloc[0] == 6
+
+    joined = "\n".join(messages)
+    assert "Multiple CSV files with data" in joined
+    assert "It is ambiguous" in joined
+    assert "ask the experimenter" in joined
+    assert "run_2025-03-01_10-00-00.csv" in joined
+    # All candidate files are named in the warning.
+    assert "run_2025-01-01_10-00-00.csv" in joined
+    assert "run_2025-02-01_10-00-00.csv" in joined
 
 
 @pytest.mark.parametrize(
@@ -625,25 +690,15 @@ def test_preprocess_ran_basic(tmp_path: Path, make_text_file):
     [
         ("Trial,RT\n", "1,2\n", "No CSV files with the required columns"),
         ("Trial,Reading_Time\n", "1,\n", "NaN values found in required columns"),
-        # Multiple files with required columns
-        (
-            "Trial,Reading_Time\n",
-            "1,2\n",
-            "Multiple CSV files with the required columns",
-        ),
     ],
 )
 def test_preprocess_ran_errors(tmp_path: Path, make_text_file, header, body, error_msg):
     folder = tmp_path / "p4" / "RAN"
-    # Create one or two files depending on error
     make_text_file(folder / "ran1.csv", header=header, body=body)
-    if error_msg.startswith("Multiple"):
-        make_text_file(folder / "ran2.csv", header=header, body=body)
     # The wrapper adds more context, so we match the wrapper's prefix
     if (
         "No CSV files with the required columns" in error_msg
         or "RAN results missing" in error_msg
-        or "Multiple CSV files with the required columns" in error_msg
         or "NaN values found" in error_msg
     ):
         with pytest.raises(ValueError, match=r"RAN \(Rapid Naming\) results missing"):
@@ -651,6 +706,28 @@ def test_preprocess_ran_errors(tmp_path: Path, make_text_file, header, body, err
     else:
         with pytest.raises(ValueError, match=error_msg):
             preprocess_ran(folder)
+
+
+def test_preprocess_ran_multiple_runs_uses_most_recent(tmp_path: Path, make_text_file):
+    folder = tmp_path / "p4" / "RAN"
+    make_text_file(
+        folder / "ran_2025-01-01_10-00-00.csv",
+        header="Trial,Reading_Time\n",
+        body="1,2.5\n2,3.5\n",
+    )
+    make_text_file(
+        folder / "ran_2025-02-01_10-00-00.csv",
+        header="Trial,Reading_Time\n",
+        body="1,20.0\n2,30.0\n",
+    )
+
+    with _capture_module_logs() as messages:
+        out = preprocess_ran(folder)
+
+    # The most recent run is used instead of raising on multiple candidates.
+    assert out["RAN_practice_rt_sec"] == pytest.approx(20.0)
+    assert out["RAN_experimental_rt_sec"] == pytest.approx(30.0)
+    assert "Multiple CSV files with data" in "\n".join(messages)
 
 
 @pytest.mark.parametrize(
@@ -799,6 +876,161 @@ def test_preprocess_lwmc_basic(tmp_path: Path, make_text_file):
     assert out["LWMC_Total_score_mean"] == pytest.approx((0.75 + 0.5 + 0.5 + 0.5) / 4)
 
 
+def test_preprocess_lwmc_partial_missing_mu(tmp_path: Path, make_text_file):
+    # A run that aborted before the MU task: the CSV has no mu_* columns at all,
+    # but OS, SS and SSTM are complete (mirrors the real SLSI specimen).
+    participant = tmp_path / "001_AB"
+    lwmc_dir = participant / "WMC"
+    lwmc_dir.mkdir(parents=True)
+
+    make_text_file(
+        lwmc_dir / "wmc.csv",
+        header=(
+            "is_practice,base_text_intertrial.started,"
+            "os_key_resp_recall.corr,os_key_resp_recall.rt,"
+            "os_key_resp_equation.corr,"
+            "ss_key_resp_recall.corr,ss_key_resp_recall.rt,"
+            "ss_key_resp_sentence.corr\n"
+        ),
+        body=(
+            "False,1,1,10,1,0,5,1\n"
+            "False,,0,20,1,1,15,1\n"
+            "False,2,1,10,1,0,5,1\n"
+            "False,,0,20,1,1,15,1\n"
+        ),
+    )
+    _make_sstm_file(lwmc_dir, make_text_file, pid="1", token="120")
+
+    with _capture_module_logs() as messages:
+        out = preprocess_lwmc(lwmc_dir)
+
+    # MU is missing entirely.
+    assert math.isnan(out["LWMC_MU_score"])
+    assert out["LWMC_MU_Done"] == 0
+    assert math.isnan(out["LWMC_MU_time_sec"])
+    # OS, SS and SSTM were recorded and are scored.
+    assert out["LWMC_OS_score"] == pytest.approx(0.5)
+    assert out["LWMC_OS_Done"] == 1
+    assert out["LWMC_OS_processingTask_score"] == pytest.approx(1.0)
+    assert out["LWMC_SS_score"] == pytest.approx(0.5)
+    assert out["LWMC_SS_Done"] == 1
+    assert out["LWMC_SSTM_score"] == pytest.approx(0.5)
+    assert out["LWMC_SSTM_Done"] == 1
+    # Total only computed when all four subtasks are present.
+    assert math.isnan(out["LWMC_Total_score_mean"])
+
+    assert "LWMC partially preprocessed for '001_AB': missing MU." in "\n".join(
+        messages
+    )
+
+
+def test_preprocess_lwmc_partial_missing_sstm_dat(tmp_path: Path, make_text_file):
+    # MU, OS and SS are complete but the SSTM-<pid>.dat file is missing
+    # (mirrors sessions 042/104 in the ZH dataset).
+    participant = tmp_path / "001_AB"
+    lwmc_dir = participant / "WMC"
+    lwmc_dir.mkdir(parents=True)
+    _make_wmc_csv(lwmc_dir, make_text_file)
+
+    with _capture_module_logs() as messages:
+        out = preprocess_lwmc(lwmc_dir)
+
+    assert out["LWMC_MU_score"] == pytest.approx(0.75)
+    assert out["LWMC_MU_Done"] == 1
+    assert out["LWMC_OS_score"] == pytest.approx(0.5)
+    assert out["LWMC_SS_score"] == pytest.approx(0.5)
+    assert math.isnan(out["LWMC_SSTM_score"])
+    assert out["LWMC_SSTM_Done"] == 0
+    assert math.isnan(out["LWMC_Total_score_mean"])
+
+    assert "LWMC partially preprocessed for '001_AB': missing SSTM." in "\n".join(
+        messages
+    )
+
+
+def test_preprocess_lwmc_multiple_csvs_picks_most_recent(
+    tmp_path: Path, make_text_file
+):
+    # Two CSV runs in the same folder (aborted first attempt + redo). Recency wins
+    # even when the older file is more complete: the earlier run contains all four
+    # subtasks, the more recent one is partial (no MU) and must be chosen.
+    participant = tmp_path / "001_AB"
+    lwmc_dir = participant / "WMC"
+    lwmc_dir.mkdir(parents=True)
+
+    # Earlier run (2025-03-04): complete, all four subtask columns present.
+    make_text_file(
+        lwmc_dir / "ZHCH1_001_PT2_2025-03-04_19-35-20.csv",
+        header=(
+            "is_practice,base_text_intertrial.started,"
+            "mu_key_resp_recall.is_correct,mu_key_resp_recall.rt,"
+            "os_key_resp_recall.corr,os_key_resp_recall.rt,"
+            "os_key_resp_equation.corr,"
+            "ss_key_resp_recall.corr,ss_key_resp_recall.rt,"
+            "ss_key_resp_sentence.corr\n"
+        ),
+        body=(
+            "False,1,1,100,1,10,1,0,5,1\n"
+            "False,,0,200,,,1,1,15,0\n"
+            "False,2,1,300,0,30,0,1,25,1\n"
+            "False,,1,400,,,1,0,35,0\n"
+        ),
+    )
+    # Later run (2025-03-17): partial, MU columns missing, never recorded.
+    make_text_file(
+        lwmc_dir / "ZHCH1_001_PT2_2025-03-17_19-36-24.csv",
+        header=(
+            "is_practice,base_text_intertrial.started,"
+            "os_key_resp_recall.corr,os_key_resp_recall.rt,"
+            "os_key_resp_equation.corr,"
+            "ss_key_resp_recall.corr,ss_key_resp_recall.rt,"
+            "ss_key_resp_sentence.corr\n"
+        ),
+        body=(
+            "False,1,1,10,1,0,5,1\n"
+            "False,,0,20,1,1,15,1\n"
+            "False,2,1,10,1,0,5,1\n"
+            "False,,0,20,1,1,15,1\n"
+        ),
+    )
+    _make_sstm_file(lwmc_dir, make_text_file, pid="1", token="120")
+
+    with _capture_module_logs() as messages:
+        out = preprocess_lwmc(lwmc_dir)
+
+    # The recent (partial) run was chosen despite being less complete than the older one.
+    assert math.isnan(out["LWMC_MU_score"])
+    assert out["LWMC_MU_Done"] == 0
+    assert out["LWMC_OS_score"] == pytest.approx(0.5)
+    assert out["LWMC_OS_processingTask_score"] == pytest.approx(1.0)
+    assert out["LWMC_SS_score"] == pytest.approx(0.5)
+    assert out["LWMC_SentS_processingTask_score"] == pytest.approx(1.0)
+    assert out["LWMC_SSTM_score"] == pytest.approx(0.5)
+    assert math.isnan(out["LWMC_Total_score_mean"])
+
+    joined = "\n".join(messages)
+    assert "Multiple CSV files with data" in joined
+    assert "It is ambiguous" in joined
+    assert "ask the experimenter" in joined
+    assert "ZHCH1_001_PT2_2025-03-17_19-36-24.csv" in joined
+
+
+def test_preprocess_lwmc_nothing_usable_raises(tmp_path: Path, make_text_file):
+    # A CSV with only the trial markers and no task data is not a partial run,
+    # it is unusable and must still raise.
+    participant = tmp_path / "001_AB"
+    lwmc_dir = participant / "WMC"
+    lwmc_dir.mkdir(parents=True)
+    make_text_file(
+        lwmc_dir / "wmc.csv",
+        header="is_practice,base_text_intertrial.started\n",
+        body="False,1\nFalse,,\nFalse,2\nFalse,,\n",
+    )
+
+    with pytest.raises(ValueError, match="no usable WMC subtask data"):
+        preprocess_lwmc(lwmc_dir)
+
+
 @pytest.mark.parametrize(
     "prep, error_msg",
     [
@@ -817,11 +1049,6 @@ def test_preprocess_lwmc_basic(tmp_path: Path, make_text_file):
                 body="""True,1,1,100,1,10,1,1,5,1\nTrue,,1,100,1,10,1,1,5,1\n""",
             ),
             "No non-practice trials found",
-        ),
-        # Missing SSTM file
-        (
-            lambda d, mk: _make_wmc_csv(d, mk),
-            "Missing required WMC file",
         ),
         # Malformed SSTM: too few lines
         (
@@ -846,22 +1073,6 @@ def test_preprocess_lwmc_basic(tmp_path: Path, make_text_file):
                 mk(d / "SSTM-1.dat", body="h\nScore abc\n"),
             ),
             "Invalid SSTM score token",
-        ),
-        # No valid MU trials (all NaN in MU correctness)
-        (
-            lambda d, mk: mk(
-                d / "wmc.csv",
-                header=(
-                    "is_practice,base_text_intertrial.started,"
-                    "mu_key_resp_recall.is_correct,mu_key_resp_recall.rt,"
-                    "os_key_resp_recall.corr,os_key_resp_recall.rt,"
-                    "os_key_resp_equation.corr,"
-                    "ss_key_resp_recall.corr,ss_key_resp_recall.rt,"
-                    "ss_key_resp_sentence.corr\n"
-                ),
-                body=("False,1,,100,1,10,1,1,5,1\nFalse,,,200,,,1,1,15,1\n"),
-            ),
-            "No valid MU trials found",
         ),
         # Cannot infer participant id (parent stem without 3 leading digits)
         (

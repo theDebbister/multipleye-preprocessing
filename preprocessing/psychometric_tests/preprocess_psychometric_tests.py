@@ -16,48 +16,41 @@ Background and task descriptions:
 https://github.com/MultiplEYE-COST/MultiplEYE-psychometric-tests#readme
 """
 
-import warnings
+from logging import Logger
 from math import nan
 from pathlib import Path
 
 import pandas as pd
+import yaml
 from pandas import DataFrame, read_csv
 
 from ..config import settings
 from ..models.sid import Sid
 from ..utils import validate_psychometric_data
+from ..utils.data_path_utils import find_psychometric_config_files
+from ..utils.logging import get_logger
 
 
 def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
     """
-    Preprocess all sessions and write overview and detailed results.
+    Preprocess all psychometric test sessions and write a consolidated results table.
 
     This function performs the following steps:
     1. Validates the psychometric data structure.
     2. Iterates through each session folder.
     3. Extracts session information (PID, session part, postfix).
     4. Preprocesses each individual test (LWMC, RAN, Stroop, Flanker, WikiVocab, PLAB).
-    5. Aggregates results into an overview row per session.
-    6. Writes a detailed CSV for each session to the output directory.
-    7. Writes a comprehensive overview CSV for all sessions to the output directory.
+    5. Aggregates all results (summary and detailed metrics) into a wide row per session.
+    6. Writes a consolidated per-session results CSV and a per-participant merged CSV.
 
-    Two types of outputs are generated:
+    Two output files are generated in ``OUTPUT_DIR / PSYCHOMETRIC_TESTS_FOLDER``:
 
-    1. **Overview CSV** (one row per session) saved to
-       ``OUTPUT_DIR / PSYCHOMETRIC_TESTS_FOLDER``.
-       The filename includes the data collection name.
-       The overview contains only the requested summary metrics:
-       - LWMC: scores only (no times)
-       - Stroop & Flanker: AccuracyEffect and TREffect only
-       - WikiVocab: rt_mean, accuracy, incorrect_correct_score
-       - RAN: Reaction time for two trials
-       - PLAB: RT mean and accuracy (overall and split for sets 1 and 2)
-
-    2. **Per-session detailed CSV** saved to
-       ``OUTPUT_DIR / PSYCHOMETRIC_TESTS_FOLDER / {session_name}``
-       with all available detailed metrics in a readable, wide format
-       (namespaced columns). For example, grouped RT/accuracy for
-       Stroop/Flanker are stored as columns like ``Stroop_congruent_rt_mean``.
+    - ``psychometric_results_{DCN}.csv``: one row per session with all available
+      metrics (per-condition RT/accuracy/item counts, LWMC scores and timings,
+      WikiVocab item breakdowns, PLAB set splits), prefixed per test. Sessions
+      without a given test have empty cells for that test's columns.
+    - ``psychometric_results_{DCN}_merged.csv``: sessions merged per participant
+      (e.g. PT1 + PT2) when their tests are disjoint.
 
     Parameters
     ----------
@@ -68,12 +61,12 @@ def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
     Returns
     -------
     Path
-        The path to the generated overview CSV file.
+        The path to the generated per-session results CSV file.
 
     Notes
     -----
-    - All computations are performed once per session and then split into
-      overview vs. detailed outputs.
+    - All computations are performed once per session and collected into a single
+      wide per-session row; tests without data produce empty cells.
     """
     if test_session_folder is None:
         test_session_folder = settings.PSYCHOMETRIC_TESTS_DIR
@@ -83,8 +76,6 @@ def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
     if not test_session_folder.exists() or not any(
         _is_valid_folder(p) for p in test_session_folder.iterdir()
     ):
-        from ..utils.logging import get_logger
-
         get_logger(__name__).info(
             "No psychometric test session folders found. Skipping."
         )
@@ -103,6 +94,7 @@ def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
     session_folders = sorted(session_folders, key=lambda p: p.name)
 
     overview_rows: list[dict] = []
+    detailed_rows: list[dict] = []
 
     for session in session_folders:
         try:
@@ -164,8 +156,10 @@ def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
         if lwmc_dir.exists():
             try:
                 res_lwmc = preprocess_lwmc(lwmc_dir)  # dict
-                # detailed: all LWMC metrics
-                detailed_row.update(res_lwmc)
+                # detailed: all LWMC metrics (the _Done flags live only in the overview)
+                detailed_row.update(
+                    {k: v for k, v in res_lwmc.items() if not k.endswith("_Done")}
+                )
                 # overview: selected scores and processing tasks
                 for k in [
                     "LWMC_MU_score",
@@ -175,14 +169,17 @@ def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
                     "LWMC_Total_score_mean",
                     "LWMC_OS_processingTask_score",
                     "LWMC_SentS_processingTask_score",
+                    "LWMC_MU_Done",
+                    "LWMC_OS_Done",
+                    "LWMC_SS_Done",
+                    "LWMC_SSTM_Done",
                 ]:
                     if k in res_lwmc:
                         overview_row[k] = res_lwmc[k]
                 overview_row["LWMC_Done"] = 1
             except ValueError as err:
-                warnings.warn(
-                    f"[{session.name}] LWMC test skipped: {err!s}",
-                    category=UserWarning,
+                get_logger(__name__).debug(
+                    f"[{session.name}] LWMC test skipped: {err!s}"
                 )
 
         # RAN
@@ -196,9 +193,8 @@ def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
                 # Mark Done on successful preprocessing regardless of emptiness
                 overview_row["RAN_Done"] = 1
             except ValueError as err:
-                warnings.warn(
-                    f"[{session.name}] RAN test skipped: {err!s}",
-                    category=UserWarning,
+                get_logger(__name__).debug(
+                    f"[{session.name}] RAN test skipped: {err!s}"
                 )
 
         # Stroop & Flanker
@@ -225,9 +221,8 @@ def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
                 detailed_row.update(res_stroop)
                 overview_row["Stroop_Done"] = 1
             except ValueError as err:
-                warnings.warn(
-                    f"[{session.name}] Stroop test skipped: {err!s}",
-                    category=UserWarning,
+                get_logger(__name__).debug(
+                    f"[{session.name}] Stroop test skipped: {err!s}"
                 )
             try:
                 res_flanker = preprocess_flanker(sf_dir)  # DataFrame
@@ -252,9 +247,8 @@ def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
                 detailed_row.update(res_flanker)
                 overview_row["Flanker_Done"] = 1
             except ValueError as err:
-                warnings.warn(
-                    f"[{session.name}] Flanker test skipped: {err!s}",
-                    category=UserWarning,
+                get_logger(__name__).debug(
+                    f"[{session.name}] Flanker test skipped: {err!s}"
                 )
 
         # WikiVocab (tuple[rt_mean, accuracy])
@@ -276,9 +270,8 @@ def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
                     overview_row[key] = res_wv[key]
                 overview_row["WikiVocab_Done"] = 1
             except ValueError as err:
-                warnings.warn(
-                    f"[{session.name}] WikiVocab test skipped: {err!s}",
-                    category=UserWarning,
+                get_logger(__name__).debug(
+                    f"[{session.name}] WikiVocab test skipped: {err!s}"
                 )
 
         # PLAB (tuple[rt_mean, accuracy])
@@ -299,64 +292,56 @@ def preprocess_all_sessions(test_session_folder: Path | None = None) -> Path:
                 ]
                 overview_row["PLAB_Done"] = 1
             except ValueError as err:
-                warnings.warn(
-                    f"[{session.name}] PLAB test skipped: {err!s}",
-                    category=UserWarning,
+                get_logger(__name__).debug(
+                    f"[{session.name}] PLAB test skipped: {err!s}"
                 )
 
-        # Write per-session detailed CSV to the output directory
-        try:
-            detailed_out = output_dir / session.name
-            detailed_out.mkdir(parents=True, exist_ok=True)
-            detailed_path = detailed_out / f"psychometric_details_{session.name}.csv"
-            pd.DataFrame([detailed_row]).to_csv(detailed_path, index=False)
-        except Exception as exc:
-            warnings.warn(
-                f"Failed to write detailed CSV for {session.name}: {exc}",
-                category=UserWarning,
-            )
-
+        # Collect the wide per-session row containing all summary and detailed metrics.
+        detailed_rows.append(detailed_row)
         overview_rows.append(overview_row)
 
     # Write overview CSV (wide format) to the output directory
-    out_path = output_dir / f"psychometric_overview_{settings.DATA_COLLECTION_NAME}.csv"
-    df = pd.DataFrame(overview_rows)
-    # Ensure columns order: session_id, participant_id, then flags, then notes, then the rest
-    session_cols = ["session_id"]
+    out_path = output_dir / f"psychometric_results_{settings.DATA_COLLECTION_NAME}.csv"
+
+    # Consolidated wide table: all detailed metrics per session plus _Done flags.
+    df = pd.DataFrame(detailed_rows)
     flag_cols = [
         "LWMC_Done",
+        "LWMC_MU_Done",
+        "LWMC_OS_Done",
+        "LWMC_SS_Done",
+        "LWMC_SSTM_Done",
         "RAN_Done",
         "Stroop_Done",
         "Flanker_Done",
         "WikiVocab_Done",
         "PLAB_Done",
     ]
-    for col in flag_cols:
-        if col not in df.columns:
-            df[col] = 0
+    # Merge the _Done flags (present on overview rows) into the detailed rows.
+    overview_df = pd.DataFrame(overview_rows)
+    flag_cols_present = [c for c in flag_cols if c in overview_df.columns]
+    flag_df = overview_df[flag_cols_present].fillna(0).astype(int)
+    df = pd.concat([df, flag_df], axis=1)
 
-    # Identify non-fixed columns
-    fixed = session_cols + ["participant_id"] + flag_cols + ["notes"]
-    remaining = [c for c in df.columns if c not in fixed]
-
-    # Filter out columns that might not exist in df
-    final_cols = [c for c in fixed if c in df.columns] + remaining
-    df = df[final_cols]
+    # Order columns: identifiers, then flags, then metrics grouped by test.
+    id_cols = ["session_id", "participant_id", "session", "postfix", "notes"]
+    ordered_cols = _ordered_psychometric_columns(df.columns, id_cols, flag_cols)
+    df = df[ordered_cols]
     df.to_csv(out_path, index=False)
 
-    from ..utils.logging import get_logger
-
-    get_logger(__name__).info(f"Wrote overview: {out_path}")
+    get_logger(__name__).info(f"Wrote results: {out_path}")
 
     merged_path = create_merged_psychometric_overview(out_path)
-    get_logger(__name__).info(f"Wrote merged overview: {merged_path}")
+    get_logger(__name__).info(f"Wrote merged results: {merged_path}")
+
+    _warn_missing_tests_in_merged_overview(merged_path, test_session_folder)
 
     return out_path
 
 
 def create_merged_psychometric_overview(overview_path: Path) -> Path:
     """
-    Creates a merged version of the psychometric overview CSV.
+    Create a merged version of a wide psychometric results table.
 
     Rows for the same participant are merged if their tests are disjoint
     (e.g., PT1 has RAN and PT2 has LWMC). If tests overlap, they are not
@@ -365,7 +350,7 @@ def create_merged_psychometric_overview(overview_path: Path) -> Path:
     Parameters
     ----------
     overview_path : Path
-        Path to the original psychometric overview CSV.
+        Path to the wide per-session results CSV (e.g. ``psychometric_results_*``).
 
     Returns
     -------
@@ -406,8 +391,6 @@ def create_merged_psychometric_overview(overview_path: Path) -> Path:
         for col in done_cols:
             if group[col].sum() > 1:
                 can_merge = False
-                from ..utils.logging import get_logger
-
                 get_logger(__name__).warning(
                     f"Cannot merge sessions for participant {pid} ({base_sid}): "
                     f"overlapping results for {col}."
@@ -483,6 +466,193 @@ def create_merged_psychometric_overview(overview_path: Path) -> Path:
 
 def _is_valid_folder(folder: Path) -> bool:
     return folder.is_dir() and folder.stem[:3].isdigit() and folder.stem[3] == "_"
+
+
+_TEST_ORDER = ["LWMC", "RAN", "Stroop", "Flanker", "WikiVocab", "PLAB"]
+
+
+def _ordered_psychometric_columns(
+    columns: list[str],
+    id_cols: list[str],
+    flag_cols: list[str],
+) -> list[str]:
+    """
+    Order the wide results columns: identifiers, then flags, then metrics per test.
+
+    Metric columns are grouped by their test name prefix (``_TEST_ORDER``) and
+    sorted alphabetically within each group. Any unrecognized metric columns are
+    appended at the end in sorted order.
+
+    Parameters
+    ----------
+    columns : list[str]
+        All columns present in the results table.
+    id_cols : list[str]
+        Identifier columns to place first.
+    flag_cols : list[str]
+        ``_Done`` flag columns to place after the identifiers.
+
+    Returns
+    -------
+    list[str]
+        The ordered column list (only columns present in ``columns``).
+    """
+    ids = [c for c in id_cols if c in columns]
+    flags = [c for c in flag_cols if c in columns]
+    metrics = [c for c in columns if c not in id_cols and c not in flag_cols]
+
+    remaining = list(metrics)
+    metrics_ordered: list[str] = []
+    for prefix in _TEST_ORDER:
+        group = sorted(c for c in remaining if c.startswith(prefix))
+        metrics_ordered.extend(group)
+        remaining = [c for c in remaining if c not in group]
+    metrics_ordered.extend(sorted(remaining))
+
+    return ids + flags + metrics_ordered
+
+
+def _warn_missing_tests_in_merged_overview(
+    merged_path: Path, test_session_folder: Path
+) -> None:
+    """
+    Emit consolidated warnings for missing or unexpected psychometric tests.
+
+    Compares the expected psychometric tests (from the participant config YAMLs)
+    against the ``_Done`` flags in the merged overview and emits at most one
+    warning per category, listing all affected participants together:
+
+    - config says a test is expected, but it was not preprocessed (``_Done`` = 0)
+    - config says a test is absent, but data was preprocessed (``_Done`` > 0)
+
+    The config YAMLs are looked up in the session folders of ``test_session_folder``
+    (restructured layout), falling back to the legacy config folder.
+
+    Parameters
+    ----------
+    merged_path : Path
+        Path to the merged psychometric overview CSV.
+    test_session_folder : Path
+        The folder containing the per-session psychometric test folders.
+    """
+    merged_df = read_csv(merged_path, dtype={"participant_id": str})
+    if merged_df.empty:
+        return
+
+    done_cols = [c for c in merged_df.columns if c.endswith("_Done")]
+
+    # Folder name -> _Done columns produced when the test is processed.
+    # A test counts as fully done only when all its flags are set. for LWMC this
+    # includes the per-subtask flags so that a partial run (some subtasks missing) is
+    # still reported as missing expected data.
+    folder_to_done = {
+        "PLAB": ["PLAB_Done"],
+        "RAN": ["RAN_Done"],
+        "Stroop_Flanker": ["Stroop_Done", "Flanker_Done"],
+        "WMC": [
+            "LWMC_Done",
+            "LWMC_MU_Done",
+            "LWMC_OS_Done",
+            "LWMC_SS_Done",
+            "LWMC_SSTM_Done",
+        ],
+        "WikiVocab": ["WikiVocab_Done"],
+    }
+
+    # Aggregate expected flags across all session-level config files per base SID.
+    config_files = find_psychometric_config_files(
+        settings.PSYM_PARTICIPANT_CONFIGS, test_session_folder, is_restructured=True
+    )
+    expected_by_base: dict[str, dict[str, bool]] = {}
+    for config_file in config_files:
+        try:
+            base_id = Sid(config_file.stem).base_id
+        except (ValueError, TypeError):
+            continue
+        with open(config_file) as f:
+            config_data = yaml.safe_load(f) or {}
+        agg = expected_by_base.setdefault(base_id, {})
+        for yaml_flag in settings.PSYCHOMETRIC_TEST_MAPPING:
+            agg[yaml_flag] = agg.get(yaml_flag, False) or (
+                config_data.get(yaml_flag, False) is True
+            )
+
+    missing_for_expected: dict[str, list[str]] = {}
+    present_but_unexpected: dict[str, list[str]] = {}
+
+    for _, row in merged_df.iterrows():
+        base_id = str(row["session_id"])
+        if base_id not in expected_by_base:
+            continue
+        expected = expected_by_base[base_id]
+        for yaml_flag, folder_name in settings.PSYCHOMETRIC_TEST_MAPPING.items():
+            done_names = [
+                c for c in folder_to_done.get(folder_name, []) if c in done_cols
+            ]
+            if not done_names:
+                continue
+            any_done = any(int(row[c]) > 0 for c in done_names)
+            all_done = all(int(row[c]) > 0 for c in done_names)
+            if expected.get(yaml_flag, False):
+                if not all_done:
+                    missing_for_expected.setdefault(folder_name, []).append(base_id)
+            else:
+                if any_done:
+                    present_but_unexpected.setdefault(folder_name, []).append(base_id)
+
+    _log_test_report(
+        get_logger(__name__),
+        "Participants missing expected psychometric tests (marked as expected in "
+        "config, but no results were preprocessed)",
+        missing_for_expected,
+    )
+    _log_test_report(
+        get_logger(__name__),
+        "Participants with psychometric test data but marked as absent (or missing) "
+        "in config",
+        present_but_unexpected,
+    )
+
+
+def _log_test_report(
+    logger: Logger,
+    description: str,
+    by_test: dict[str, list[str]],
+    max_sids: int = 5,
+) -> None:
+    """
+    Log a per-test summary of affected participants as a single warning.
+
+    Groups the affected participant SIDs by test and prints a count plus a short
+    list per test, truncating long lists to ``max_sids`` entries.
+
+    Parameters
+    ----------
+    logger : Logger
+        The logger to emit the warning on.
+    description : str
+        Human-readable description of the category being reported.
+    by_test : dict[str, list[str]]
+        Mapping from test folder name to a list of affected participant SIDs.
+    max_sids : int
+        Maximum number of participant SIDs to list per test before truncating.
+    """
+    if not by_test:
+        return
+
+    unique_sids = sorted({sid for sids in by_test.values() for sid in sids})
+    lines = [
+        f"{description}:",
+        f"  Affected: {len(unique_sids)} participant(s)",
+    ]
+    for folder_name in sorted(by_test):
+        sids = sorted(dict.fromkeys(by_test[folder_name]))
+        shown = ", ".join(sids[:max_sids])
+        if len(sids) > max_sids:
+            shown += f", ... (+{len(sids) - max_sids} more)"
+        lines.append(f"  {folder_name}: {len(sids)} participant(s): {shown}")
+
+    logger.warning("\n".join(lines))
 
 
 def preprocess_stroop(stroop_flanker_dir: Path) -> dict:
@@ -712,6 +882,10 @@ def preprocess_lwmc(lwmc_dir: Path) -> dict:
       compute the mean of the per-trial mean correctness values. This avoids overweighting
       trials with more items.
     - SSTM continues to be read from the original ``.dat`` file.
+    - A partial run (a CSV missing entire task columns, or a missing SSTM ``.dat``) is not
+      an error: the tasks that do have data are scored and the missing ones are reported via
+      ``LWMC_<Task>_Done`` flags set to 0 with NaN scores. ``LWMC_Total_score_mean`` is only
+      computed when all four subtasks are present.
 
     Attribution: Scoring concept adapted from Laura Stahlhut's Python implementation (2022)
     of the Lewandowsky WMC battery (wmc-analysis).
@@ -728,6 +902,8 @@ def preprocess_lwmc(lwmc_dir: Path) -> dict:
     - Trial_Score_SS = sum(correct_items_in_trial) / num_items_in_trial
     - SS_score = mean(Trial_Score_SS) across all trials
     - SSTM_score = SSTM_raw_score / 240.0
+    - LWMC_Total_score_mean = (MU_score + OS_score + SS_score + SSTM_score) / 4,
+      computed only when all four subtasks are available.
 
     Parameters
     ----------
@@ -737,16 +913,20 @@ def preprocess_lwmc(lwmc_dir: Path) -> dict:
     Returns
     -------
     dict
-        A dictionary with scores and response times for each task,
-        prefixed with 'LWMC_'.
+        A dictionary with scores and response times for each task, prefixed with 'LWMC_'.
+        Each task also has a ``LWMC_<Task>_Done`` flag (0/1) indicating whether usable data
+        was found for it.
 
     Raises
     ------
     ValueError
-        If required CSV or DAT files are missing or malformed.
+        If no usable WMC data at all is available, or the SSTM ``.dat`` file is malformed.
     """
 
-    # 1) Load the single WMC CSV that contains the relevant columns
+    # 1) Load the single WMC CSV that contains the relevant columns.
+    #    The file may be partial: a run that aborted partway can be missing the
+    #    columns for tasks that never started (e.g. no MU). read_all_columns=False
+    #    lets us still extract the tasks that were recorded.
     required_cols = [
         "is_practice",  # Filter out practice trials
         "base_text_intertrial.started",  # Marker to separate trials
@@ -760,7 +940,9 @@ def preprocess_lwmc(lwmc_dir: Path) -> dict:
         "ss_key_resp_sentence.corr",  # SS processing task
     ]
     try:
-        df = _find_one_filetype_with_columns(lwmc_dir, required_cols, allow_nan=True)
+        df = _find_one_filetype_with_columns(
+            lwmc_dir, required_cols, allow_nan=True, read_all_columns=False
+        )
     except ValueError as err:
         # Determine display path for the outer error message
         try:
@@ -792,6 +974,13 @@ def preprocess_lwmc(lwmc_dir: Path) -> dict:
             f"\nDetail: {err}"
         ) from err
 
+    anchors = ["is_practice", "base_text_intertrial.started"]
+    if not all(a in df.columns for a in anchors):
+        raise ValueError(
+            "LWMC (Working Memory Capacity) results missing or incomplete: the WMC CSV "
+            "does not contain the trial markers required to compute scores."
+        )
+
     # Create a trial identifier using the inter-trial text onset markers
     # Each non-NaN in base_text_intertrial.started indicates a new trial boundary.
     df["trial_id"] = df["base_text_intertrial.started"].notna().cumsum()
@@ -805,34 +994,37 @@ def preprocess_lwmc(lwmc_dir: Path) -> dict:
 
     def _per_trial_mean_then_mean(
         correctness_col: str, time_col: str, label: str
-    ) -> float:
+    ) -> tuple[float, float, bool]:
+        """Return (mean score, mean time, done) for one WMC subtask.
+
+        A missing or empty subtask is not an error: it yields (nan, nan, False) so the
+        other (partial) data can still be used.
+        """
         if correctness_col not in df.columns:
-            raise ValueError(f"Missing column '{correctness_col}' for {label}")
+            return nan, nan, False
         # Select only rows with a value for the specific task's correctness column
-        mask = df[correctness_col].notna()
-        if not mask.any():
-            raise ValueError(
-                f"No valid {label} trials found (no non-NaN entries in {correctness_col})"
-            )
+        mask_vals = df[correctness_col].notna()
+        if not mask_vals.any():
+            return nan, nan, False
         # Use the in-frame 'trial_id' column to avoid index alignment issues
-        sub = df.loc[mask, [correctness_col, time_col, "trial_id"]].copy()
+        sub = df.loc[mask_vals, [correctness_col, time_col, "trial_id"]].copy()
         # Ensure correctness is numeric (0/1 or NaN)
         sub[correctness_col] = pd.to_numeric(sub[correctness_col], errors="coerce")
         # Compute mean correctness per trial_id, then mean of these per-trial means
         corr_per_trial = sub.groupby("trial_id", dropna=True)[correctness_col].mean()
         time_per_trial = sub.groupby("trial_id", dropna=True)[time_col].mean()
         if corr_per_trial.empty:
-            raise ValueError(f"No valid {label} trials found after grouping")
-        return float(corr_per_trial.mean()), float(time_per_trial.mean())
+            return nan, nan, False
+        return float(corr_per_trial.mean()), float(time_per_trial.mean()), True
 
-    # 2) Compute MU/OS/SS from CSV columns
-    mu_score, mu_time = _per_trial_mean_then_mean(
+    # 2) Compute MU/OS/SS from CSV columns (each may be missing in a partial run)
+    mu_score, mu_time, mu_done = _per_trial_mean_then_mean(
         "mu_key_resp_recall.is_correct", "mu_key_resp_recall.rt", "MU"
     )
-    os_score, os_time = _per_trial_mean_then_mean(
+    os_score, os_time, os_done = _per_trial_mean_then_mean(
         "os_key_resp_recall.corr", "os_key_resp_recall.rt", "OS"
     )
-    ss_score, ss_time = _per_trial_mean_then_mean(
+    ss_score, ss_time, ss_done = _per_trial_mean_then_mean(
         "ss_key_resp_recall.corr", "ss_key_resp_recall.rt", "SS"
     )
 
@@ -854,41 +1046,75 @@ def preprocess_lwmc(lwmc_dir: Path) -> dict:
 
     pid = _participant_id_from_dir(lwmc_dir)
     sstm_file = lwmc_dir / f"SSTM-{pid}.dat"
-    if not sstm_file.exists() or not sstm_file.is_file():
-        raise ValueError(f"Missing required WMC file: {sstm_file}")
+    sstm_done = False
+    if sstm_file.exists() and sstm_file.is_file():
 
-    def _read_lines(p: Path) -> list[str]:
+        def _read_lines(p: Path) -> list[str]:
+            try:
+                with p.open("r", encoding="utf-8") as fh:
+                    return fh.readlines()
+            except Exception as exc:
+                raise ValueError(f"Failed to read WMC file {p}: {exc}") from exc
+
+        sstm_lines = _read_lines(sstm_file)
+        if len(sstm_lines) < 2:
+            raise ValueError(f"Malformed SSTM file (too few lines): {sstm_file}")
+        sstm_tokens = [t for t in sstm_lines[1].rstrip("\n").split(" ") if t != ""]
+        if len(sstm_tokens) < 2:
+            raise ValueError(f"Malformed SSTM line (too few tokens): {sstm_lines[1]}")
         try:
-            with p.open("r", encoding="utf-8") as fh:
-                return fh.readlines()
-        except Exception as exc:
-            raise ValueError(f"Failed to read WMC file {p}: {exc}") from exc
+            sstm_raw = int(sstm_tokens[1])
+        except ValueError as exc:
+            raise ValueError(f"Invalid SSTM score token: {sstm_tokens[1]}") from exc
+        sstm_score = sstm_raw / 240.0
+        sstm_done = True
+    else:
+        # Missing SSTM file: keep the other subtask scores, SSTM stays NaN.
+        sstm_score = nan
 
-    sstm_lines = _read_lines(sstm_file)
-    if len(sstm_lines) < 2:
-        raise ValueError(f"Malformed SSTM file (too few lines): {sstm_file}")
-    sstm_tokens = [t for t in sstm_lines[1].rstrip("\n").split(" ") if t != ""]
-    if len(sstm_tokens) < 2:
-        raise ValueError(f"Malformed SSTM line (too few tokens): {sstm_lines[1]}")
-    try:
-        sstm_raw = int(sstm_tokens[1])
-    except ValueError as exc:
-        raise ValueError(f"Invalid SSTM score token: {sstm_tokens[1]}") from exc
-    sstm_score = sstm_raw / 240.0
+    if not any([mu_done, os_done, ss_done, sstm_done]):
+        raise ValueError(
+            "LWMC (Working Memory Capacity) results missing or incomplete: "
+            "no usable WMC subtask data was found in the available files."
+        )
 
-    # 4) Total mean
-    total = (mu_score + os_score + ss_score + sstm_score) / 4.0
+    # 4) Total mean: only computed when all four subtasks are complete.
+    if all([mu_done, os_done, ss_done, sstm_done]):
+        total = (mu_score + os_score + ss_score + sstm_score) / 4.0
+    else:
+        total = nan
+
+    missing_tasks = [
+        label
+        for label, done in [
+            ("MU", mu_done),
+            ("OS", os_done),
+            ("SS", ss_done),
+            ("SSTM", sstm_done),
+        ]
+        if not done
+    ]
+    if missing_tasks:
+        get_logger(__name__).warning(
+            "LWMC partially preprocessed for '%s': missing %s.",
+            lwmc_dir.parent.name,
+            ", ".join(missing_tasks),
+        )
 
     return {
         "LWMC_MU_score": mu_score,
+        "LWMC_MU_Done": 1 if mu_done else 0,
         "LWMC_MU_time_sec": mu_time,
         "LWMC_OS_score": os_score,
+        "LWMC_OS_Done": 1 if os_done else 0,
         "LWMC_OS_time_sec": os_time,
         "LWMC_OS_processingTask_score": os_proc_score,
         "LWMC_SS_score": ss_score,
+        "LWMC_SS_Done": 1 if ss_done else 0,
         "LWMC_SS_time_sec": ss_time,
         "LWMC_SentS_processingTask_score": ss_proc_score,
         "LWMC_SSTM_score": sstm_score,
+        "LWMC_SSTM_Done": 1 if sstm_done else 0,
         "LWMC_Total_score_mean": total,
     }
 
@@ -1445,34 +1671,50 @@ def __validate_rt_acc_inputs(
 
 
 def _find_one_filetype_with_columns(
-    folder: Path, columns: list[str], allow_nan=False, base_path: Path | None = None
+    folder: Path,
+    columns: list[str],
+    allow_nan=False,
+    base_path: Path | None = None,
+    read_all_columns: bool = True,
 ) -> DataFrame:
     """Find a single CSV file containing specific columns and return it as DataFrame.
 
     This function searches a specified folder for CSV files and ensures that exactly one file
-    contains all the specified columns. It returns the file as DataFrame with only the
+    contains the specified columns. It returns the file as DataFrame with only the
     specified columns.
+
+    By default it requires all ``columns`` to be present in exactly one CSV file. When
+    ``read_all_columns`` is False, a CSV qualifies if it contains at least one of the
+    ``columns``. Among the qualifying files the most recently dated one is chosen (files
+    are named ``<experiment>_<participant>_<date>_<time>.csv``, so the lexically largest
+    name is the most recent run); the number of present columns only breaks ties. Since
+    several CSV files in one folder make it ambiguous which run is the actual measurement,
+    a warning is logged telling the user to check the lab documentation or ask the
+    experimenter.
 
     Parameters
     ----------
     folder : Path
         Directory to search for the file.
     columns : list[str]
-        List of column names that must be present in the CSV.
+        List of column names that should be present in the CSV.
     allow_nan : bool, optional
         If True, allows NaN values in the ``columns`` asked for. Default is False.
     base_path : Path, optional
         If provided, the folder path in error messages will be relative to this path.
+    read_all_columns : bool, optional
+        If True (default), the CSV must contain all ``columns``. If False, a CSV qualifies
+        when it contains at least one of ``columns`` and only the present subset is returned.
 
     Returns
     -------
     DataFrame
-        DataFrame containing only the specified columns.
+        DataFrame containing only the specified (and present) columns.
 
     Raises
     ------
     ValueError
-        If no CSV files with the required columns or multiple such files are found.
+        If no CSV files with the required columns are found.
     ValueError
         If NaN values are found in required columns and ``allow_nan`` is False.
     """
@@ -1501,17 +1743,23 @@ def _find_one_filetype_with_columns(
 
     valid_csvs = []
     missing_cols_info = {}
+    match_count = {}  # csv name -> number of requested columns present (partial mode)
     for csv in csvs:
         # Only read the header to check columns
         try:
             cols_found = read_csv(csv, nrows=0).columns
-            missing = [col for col in columns if col not in cols_found]
+        except Exception:
+            continue
+        present = [col for col in columns if col in cols_found]
+        missing = [col for col in columns if col not in cols_found]
+        if read_all_columns:
             if not missing:
                 valid_csvs.append(csv)
             else:
                 missing_cols_info[csv.name] = missing
-        except Exception:
-            continue
+        elif present:
+            match_count[csv.name] = len(present)
+            valid_csvs.append(csv)
 
     if not valid_csvs:
         details = ""
@@ -1521,22 +1769,44 @@ def _find_one_filetype_with_columns(
             f"No CSV files with the required columns {columns} were found in '{display_path}'.{details}"
         )
 
+    # With multiple candidate runs it is ambiguous which one reflects the actual
+    # measurement, so prefer the most recently dated run. Files are named
+    # ``<experiment>_<participant>_<date>_<time>.csv``, so the lexically largest
+    # name is the most recent run. In partial mode the number of present columns
+    # only breaks ties.
+    if read_all_columns:
+        chosen = max(valid_csvs, key=lambda c: c.name)
+        selected_cols = columns
+    else:
+        chosen = max(
+            valid_csvs,
+            key=lambda c: (c.name, match_count.get(c.name, 0)),
+        )
+        selected_cols = [
+            col for col in columns if col in read_csv(chosen, nrows=0).columns
+        ]
+
     if len(valid_csvs) > 1:
-        valid_csvs_sorted = sorted([f.name for f in valid_csvs])
-        raise ValueError(
-            f"Multiple CSV files with the required columns {columns} were found in '{display_path}': "
-            f"{valid_csvs_sorted}. Please ensure only one valid results file is present."
+        matched_names = sorted(c.name for c in valid_csvs)
+        get_logger(__name__).warning(
+            "Multiple CSV files with data were found in '%s': %s. "
+            "It is ambiguous which one reflects the actual run. Using the "
+            "most recent one: '%s'. Please check the lab session documentation "
+            "or ask the experimenter which file is correct.",
+            display_path,
+            ", ".join(matched_names),
+            chosen.name,
         )
 
-    df = read_csv(valid_csvs[0], usecols=columns)
+    df = read_csv(chosen, usecols=selected_cols)
     if df.empty:
         raise ValueError(
-            f"The data file '{valid_csvs[0].name}' was found but contains no data rows."
+            f"The data file '{chosen.name}' was found but contains no data rows."
         )
 
     if not allow_nan and df.isna().any().any():
         nan_cols = df.columns[df.isna().any()].tolist()
         raise ValueError(
-            f"Required columns {nan_cols} in '{valid_csvs[0].name}' contain missing values (NaN)."
+            f"Required columns {nan_cols} in '{chosen.name}' contain missing values (NaN)."
         )
     return df

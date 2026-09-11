@@ -98,12 +98,6 @@ with the maximum attainable score in the current version.
 - `LWMC_SentS_processingTask_score`: Sentence truth-value accuracy for Sentence Span
 - `LWMC_SSTM_score`: Spatial Short-Term Memory task score
 - `LWMC_Total_score_mean`: Average score across all four tasks
-
-*Note: The processing task scores (OS and SentS) are included in the overview to validate
-participant engagement.*
-
-*Detailed outputs*:
-
 - `LWMC_MU_time_sec`: Mean response time for Memory Update
 - `LWMC_OS_time_sec`: Mean response time for Operation Span
 - `LWMC_SS_time_sec`: Mean response time for Sentence Span
@@ -162,11 +156,6 @@ $$\mathrm{RTEffect}_{\mathrm{sec}} = \mathrm{RT}_{\mathrm{incongruent}} - \mathr
 
 - `StroopAccuracyEffect`: Accuracy interference effect
 - `StroopRTEffect_sec`: Reaction time interference effect
-- `Stroop_incongruent_correct_rt_mean_sec`: Mean RT for correct incongruent trials
-- `Stroop_congruent_correct_rt_mean_sec`: Mean RT for correct congruent trials
-
-*Detailed outputs*:
-
 - `Stroop_incongruent_rt_mean_sec`: Mean RT for incongruent trials (filtered by minimum RT)
 - `Stroop_incongruent_correct_rt_mean_sec`: Mean RT for correct incongruent trials (filtered by
   minimum RT)
@@ -214,11 +203,6 @@ $$\mathrm{RTEffect}_{\mathrm{sec}} = \mathrm{RT}_{\mathrm{incongruent}} - \mathr
 
 - `FlankerAccuracyEffect`: Accuracy interference effect
 - `FlankerRTEffect_sec`: Reaction time interference effect
-- `Flanker_incongruent_correct_rt_mean_sec`: Mean RT for correct incongruent trials
-- `Flanker_congruent_correct_rt_mean_sec`: Mean RT for correct congruent trials
-
-*Detailed outputs*:
-
 - `Flanker_incongruent_rt_mean_sec`: Mean RT for incongruent trials
 - `Flanker_incongruent_correct_rt_mean_sec`: Mean RT for correct incongruent trials
 - `Flanker_incongruent_accuracy`: Accuracy for incongruent trials
@@ -242,14 +226,11 @@ learning {cite:p}`Pimsleur2004`.
 
 - `PLAB_rt_mean_sec`: Mean reaction time across all PLAB trials
 - `PLAB_accuracy`: Overall accuracy across all PLAB trials
+- `PLAB_num_items`: Total number of PLAB trials
 - `PLAB_set1_accuracy`: Accuracy for items 1-4
 - `PLAB_set2_accuracy`: Accuracy for items 5-15
 - `PLAB_set1_rt_mean_sec`: Mean RT for items 1-4
 - `PLAB_set2_rt_mean_sec`: Mean RT for items 5-15
-
-*Detailed outputs*:
-
-- `PLAB_num_items`: Total number of PLAB trials
 
 (wikivocab_test)=
 
@@ -290,18 +271,15 @@ $$\mathrm{Incorrect\_Correct\_Score} = \frac{\mathrm{Real\_Correct} + \mathrm{Ps
 - `WikiVocab_rt_mean_sec`: Mean reaction time across all trials (filtered by minimum RT)
 - `WikiVocab_accuracy`: Overall accuracy across all trials
 - `WikiVocab_incorrect_correct_score`: Balanced LexTALE-style score
-- `WikiVocab_correct_words_rt_mean_sec`: Mean RT for correct real word responses
-- `WikiVocab_correct_pseudowords_rt_mean_sec`: Mean RT for correct pseudoword responses
-- `WikiVocab_ratio_items`: Ratio of real words to pseudowords (detailed only)
-
-*Detailed outputs*:
-
 - `WikiVocab_num_items`: Total number of items
 - `WikiVocab_num_pseudo_words`: Number of pseudo-word items
 - `WikiVocab_num_real_words`: Number of real word items
+- `WikiVocab_ratio_items`: Ratio of real words to pseudowords
 - `WikiVocab_pseudo_correct`: Fraction correct for pseudo words
 - `WikiVocab_real_correct`: Fraction correct for real words
-- `WikiVocab_overall_correct`: Overall fraction correct
+- `WikiVocab_correct_all_rt_mean_sec`: Mean RT for all correct responses
+- `WikiVocab_correct_words_rt_mean_sec`: Mean RT for correct real word responses
+- `WikiVocab_correct_pseudowords_rt_mean_sec`: Mean RT for correct pseudoword responses
 
 (calculating_psychometric_tests)=
 
@@ -350,13 +328,15 @@ data/MultiplEYE_SQ_CH_Zurich_1_2025/psychometric-tests-sessions/
 │   ├── WikiVocab
 │   │   ├── SQCH1_008_PT2_2025-09-13_15-26-53.csv
 │   │   └── images
-│   └── psychometric_details_008_SQ_CH_1_PT2.csv
 ```
 
 If it happens that the data is structured first by the test folder and then by session folder,
 `prepare_language_folder` and the preflight check will detect this and restructure the data
-automatically. The `restructure_psycho_tests` CLI tool can still be used as a fallback. This can be
-invoked like this:
+automatically, but only when the data sits in the unzipped-archive layout
+(`psychometric_test_{lang}_{country}_{lab}` and `participant_configs_{lang}_{country}_{lab}`
+folders side by side, as produced by unzipping the provided archives). The
+`restructure_psycho_tests` CLI tool can still be used as a fallback, for example if the data is
+laid out directly under a `core_data` folder as shown below. This can be invoked like this:
 
 ```bash
 restructure_psycho_tests
@@ -395,10 +375,18 @@ data/MultiplEYE_SQ_CH_Zurich_1_2025/psychometric-tests-sessions/core_data/
 
 Usually, the command needs no arguments, if the {ref}`configuration_guide` was correctly set up.
 Otherwise, you can find out how to overwrite the global settings by invoking
-`restructure_psycho_tests --help`. If one session did not finish all tests, this is no problem. For
-the sessions where this is the case, the tests that do not have data will be logged to the console.
-The following calculation has been constructed to handle this case, only calculating the results of
-tests with existing data.
+`restructure_psycho_tests --help`.
+
+Session data that has no matching participant config is still moved into a session-first folder:
+a single warning lists every such session, no config YAML is generated, and the session is later
+processed based on whatever data is present. Test data under folders that are not part of the
+psychometric test mapping (for example `WCST`) is left in place in the source and logged.
+
+If one session did not finish all tests, this is no problem.
+For the sessions where this is the case, the tests that do not have data will be logged to the
+console.
+The following calculation has been constructed to handle this case,
+only calculating the results of tests with existing data.
 
 (running_calculations_psychometric)=
 
@@ -406,24 +394,23 @@ tests with existing data.
 
 The psychometric test calculations are performed as part of the main pEYEpline (via
 `run_preprocessing`, gated by `RUN_PSYCHOMETRIC_TESTS`), or standalone via the
-`preprocess_psychometric_tests()` function. Both process each test separately and combine the
-results into overview and detailed output files.
+`preprocess_psychometric_tests()` function.
+Both process each test separately and combine the results into a single consolidated results table.
 
-#### Output Location
+#### Output Structure
 
 All psychometric test results are written to
-`preprocessed_data/{data_collection_id}/psychometric_tests/`.
+`preprocessed_data/{data_collection_id}/psychometric_tests/`. The pipeline generates a single
+consolidated results table containing all summary and detailed metrics for every test:
 
-#### Overview vs. Detailed Output
+- **Results table** (`psychometric_results_{data_collection_id}.csv`): One row per session with all
+  available metrics (per-condition RT/accuracy/item counts, LWMC scores and timings, WikiVocab item
+  breakdowns, PLAB set splits, and the per-test `_Done` flags). Tests a session did not complete are
+  left empty for that session's row.
+- **Merged results table** (`psychometric_results_{data_collection_id}_merged.csv`): One row per
+  participant, merging disjoint PT sessions (e.g. PT1 with PT2) when their tests do not overlap.
 
-The pEYEpline generates two types of output:
-
-- **Overview file** (`psychometric_overview_{data_collection_id}.csv`): Contains one row per session
-  with primary metrics as per the original paper outputs.
-- **Merged overview file** (`psychometric_overview_{data_collection_id}_merged.csv`): Contains one
-  row per participant, merging disjoint PT sessions (e.g. PT1 with PT2).
-- **Detailed file** (`psychometric_details_{session_id}.csv`): Per-session CSV with all detailed
-  values, written to a subfolder named after the session.
+The per-test field lists above describe which columns each test contributes to these tables.
 
 #### Command Line Usage
 
@@ -444,5 +431,6 @@ For details on how to overwrite the global settings, run `preprocess_psychometri
 #### Data Handling
 
 The calculations automatically handle missing data. If a participant didn't complete certain tests,
-those values will be omitted from the output files and logged to the console. This ensures robust
-processing even with incomplete datasets.
+the corresponding cells in the results table are left empty. A consolidated warning lists any
+participants whose tests were expected (per participant config) but could not be preprocessed.
+This ensures robust processing even with incomplete datasets.

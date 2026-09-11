@@ -10,6 +10,12 @@ from preprocessing.config import settings
 
 from ..models.sid import Sid
 
+__all__ = [
+    "check_data_collection_exists",
+    "find_psychometric_config_files",
+    "validate_psychometric_data",
+]
+
 
 def _ci_exists(path: Path) -> bool:
     """Check if a path exists, falling back to case-insensitive comparison."""
@@ -60,6 +66,70 @@ def _ci_glob(directory: Path, pattern: str) -> list[Path]:
     ]
 
 
+def find_psychometric_config_files(
+    config_folder: Path,
+    data_folder: Path,
+    is_restructured: bool,
+) -> list[Path]:
+    """
+    Locate the participant configuration YAML files for psychometric tests.
+
+    In the restructured (session-first) layout, each session folder contains its own
+    ``<sid>.yaml`` configuration, so configs are discovered inside ``data_folder``
+    (i.e. ``data_folder/<session>/*.yaml``). For the task-first layout, configs live
+    directly in ``config_folder``. If the restructured layout yields no config files,
+    falls back to the legacy ``config_folder`` location.
+
+    Parameters
+    ----------
+    config_folder : Path
+        The legacy folder containing configuration files (.yaml).
+    data_folder : Path
+        The folder containing the session (or task) data.
+    is_restructured : bool
+        Whether the data is in the session-first (restructured) layout.
+
+    Returns
+    -------
+    list[Path]
+        The discovered config file paths, sorted by name.
+    """
+    if is_restructured and data_folder.exists():
+        session_configs = sorted(
+            config_file
+            for session_folder in data_folder.iterdir()
+            if session_folder.is_dir()
+            for config_file in session_folder.glob("*.yaml")
+        )
+        if session_configs:
+            return session_configs
+    return sorted(config_folder.glob("*.yaml"))
+
+
+def _resolve_raw_participant_folder(
+    data_folder: Path, folder_name: str, name: str, config_sid: Sid | None
+) -> Path:
+    """Resolve a participant's raw (task-first) data folder, exact then soft match.
+
+    Mirrors the restructure step so validation reports what the restructure would
+    actually move. Falls back to the exact spelling when no match is found, which
+    produces the standard MISSING DATA warning.
+    """
+    test_type_dir = data_folder / folder_name
+    exact = test_type_dir / name
+    if exact.exists():
+        return exact
+    if config_sid and test_type_dir.exists():
+        for candidate in test_type_dir.iterdir():
+            if candidate.is_dir():
+                try:
+                    if config_sid.equals_soft(Sid(candidate.name)):
+                        return candidate
+                except (ValueError, TypeError):
+                    continue
+    return exact
+
+
 def validate_psychometric_data(
     config_folder: Path,
     data_folder: Path,
@@ -93,7 +163,9 @@ def validate_psychometric_data(
     issues = {}
 
     # Find config files
-    config_files = list(config_folder.glob("*.yaml"))
+    config_files = find_psychometric_config_files(
+        config_folder, data_folder, is_restructured
+    )
     if not config_files:
         logger.warning(f"No configuration files ('*.yaml') found in {config_folder}.")
         return issues
@@ -112,7 +184,7 @@ def validate_psychometric_data(
 
         with open(config_file) as f:
             try:
-                config_data = yaml.safe_load(f)
+                config_data = yaml.safe_load(f) or {}
             except yaml.YAMLError as exc:
                 msg = f"Error reading configuration file {config_file}: {exc}"
                 logger.error(msg)
@@ -140,7 +212,9 @@ def validate_psychometric_data(
             if is_restructured:
                 test_path = data_folder / matched_folder_name / folder_name
             else:
-                test_path = data_folder / folder_name / config_sid_str
+                test_path = _resolve_raw_participant_folder(
+                    data_folder, folder_name, config_sid_str, config_sid
+                )
 
             if expected is True:
                 if not test_path.exists():
