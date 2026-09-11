@@ -26,6 +26,8 @@ def run_preprocessing(config_path: str | None = None):
         package_logger.error(status_msg)
         return
 
+    settings.copy_config_to(settings.OUTPUT_DIR)
+
     data_collection_name = settings.DATA_COLLECTION_NAME
 
     logger.info(

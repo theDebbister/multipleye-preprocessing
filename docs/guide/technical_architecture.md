@@ -96,7 +96,9 @@ makes it easy to see what's been processed.
 preprocessed_data/{dcn}/
 ├── asc/                    # converted ASC files
 ├── raw_data/               # per-trial gaze samples
-├── metadata/               # session metadata, calibrations, validations
+├── metadata/               # session metadata, calibrations, validations;
+│                           # also keeps a copy of the preprocessing config used in the
+│                           # most recent run (original filename), overwritten on re-run
 ├── fixations/              # detected fixations
 ├── saccades/               # detected saccades
 ├── scanpaths/              # AOI-mapped fixations
