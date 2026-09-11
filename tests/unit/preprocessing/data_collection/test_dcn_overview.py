@@ -276,6 +276,55 @@ class TestProcessingConfig:
         assert pc["data_loss_missingness_column"] == "pixel"
         assert pc["per_trial_loss_weighting"] == "equal"
 
+    def test_processing_config_records_psychometric_thresholds(
+        self, dummy_dcn_dir, mock_load_lab_config, mock_pipeline_version
+    ) -> None:
+        from preprocessing import settings
+
+        dc = _create_dc(dummy_dcn_dir)
+        overview = dc.create_dataset_overview(path=dummy_dcn_dir)
+        pc = overview["processing_config"]
+
+        assert pc["psym_wikivocab_min_rt"] == settings.PSYM_WIKIVOCAB_MIN_RT
+        assert pc["psym_wikivocab_max_rt"] == settings.PSYM_WIKIVOCAB_MAX_RT
+        assert pc["psym_stroop_min_rt"] == settings.PSYM_STROOP_MIN_RT
+        assert pc["psym_stroop_max_rt"] == settings.PSYM_STROOP_MAX_RT
+        assert pc["psym_flanker_min_rt"] == settings.PSYM_FLANKER_MIN_RT
+        assert pc["psym_flanker_max_rt"] == settings.PSYM_FLANKER_MAX_RT
+
+    def test_processing_config_records_eye_and_column_mappings(
+        self, dummy_dcn_dir, mock_load_lab_config, mock_pipeline_version
+    ) -> None:
+        from preprocessing import settings
+
+        dc = _create_dc(dummy_dcn_dir)
+        overview = dc.create_dataset_overview(path=dummy_dcn_dir)
+        pc = overview["processing_config"]
+
+        assert pc["tracked_eye"] == settings.TRACKED_EYE
+        assert pc["trial_cols"] == settings.TRIAL_COLS
+        assert pc["trial_col"] == settings.TRIAL_COL
+        assert pc["page_col"] == settings.PAGE_COL
+        assert pc["stimulus_col"] == settings.STIMULUS_COL
+        assert pc["word_idx_col"] == settings.WORD_IDX_COL
+        assert pc["char_idx_col"] == settings.CHAR_IDX_COL
+
+    def test_processing_config_inf_round_trips_through_yaml(
+        self, dummy_dcn_dir, mock_load_lab_config, mock_pipeline_version
+    ) -> None:
+        dc = _create_dc(dummy_dcn_dir)
+        dc.create_dataset_overview(path=dummy_dcn_dir)
+        yaml_path = dummy_dcn_dir / "MultiplEYE_EN_UK_London_1_2025_overview.yaml"
+
+        with open(yaml_path) as f:
+            data = yaml.safe_load(f)
+
+        pc = data["processing_config"]
+        assert pc["psym_wikivocab_max_rt"] == float("inf")
+        assert pc["psym_stroop_max_rt"] == float("inf")
+        assert pc["psym_flanker_max_rt"] == float("inf")
+        assert pc["tracked_eye"] == ["L", "R", "RIGHT", "LEFT"]
+
 
 class TestDataAvailability:
     def test_all_formats_hardcoded_true(

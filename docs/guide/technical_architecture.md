@@ -122,7 +122,10 @@ disjoint). The merged overview combines PT1 and PT2 data for the same subject.
 parameters (`fixation_method`, `fixation_minimum_duration_ms`, `fixation_velocity_threshold`,
 `saccade_method`, `saccade_minimum_duration`, `saccade_threshold_factor`), velocity-estimation
 parameters (`velocity_estimation_method`, `velocity_smoothing_window_ms`,
-`velocity_polynomial_degree`) and fixed design decisions that are not configurable
-(`aoi_enlargement`, `reading_measures_null_fill`, `scanpath_drop_unmapped`,
-`data_loss_missingness_column`, `per_trial_loss_weighting`). These values are read from the
-resolved configuration, so the overview always reflects what was actually applied.
+`velocity_polynomial_degree`), psychometric scoring thresholds (`psym_wikivocab_{min,max}_rt`,
+`psym_stroop_{min,max}_rt`, `psym_flanker_{min,max}_rt`), eye and column mappings
+(`tracked_eye`, `trial_cols`, `trial_col`, `page_col`, `stimulus_col`, `word_idx_col`,
+`char_idx_col`) and fixed design decisions that are not configurable (`aoi_enlargement`,
+`reading_measures_null_fill`, `scanpath_drop_unmapped`, `data_loss_missingness_column`,
+`per_trial_loss_weighting`). These values are read from the resolved configuration, so the
+overview always reflects what was actually applied.
