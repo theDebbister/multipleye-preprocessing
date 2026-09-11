@@ -241,7 +241,40 @@ class TestYAMLOutput:
         assert keys[3] == "psychometric_tests"
         assert keys[4] == "technical_setup"
         assert keys[5] == "processing"
-        assert keys[6] == "data_quality"
+        assert keys[6] == "processing_config"
+        assert keys[7] == "data_quality"
+
+
+class TestProcessingConfig:
+    def test_processing_config_reflects_settings(
+        self, dummy_dcn_dir, mock_load_lab_config, mock_pipeline_version
+    ) -> None:
+        dc = _create_dc(dummy_dcn_dir)
+        overview = dc.create_dataset_overview(path=dummy_dcn_dir)
+        pc = overview["processing_config"]
+
+        assert pc["fixation_method"] == "ivt"
+        assert pc["fixation_minimum_duration_ms"] == 100
+        assert pc["fixation_velocity_threshold"] == 20.0
+        assert pc["saccade_method"] == "microsaccades"
+        assert pc["saccade_minimum_duration"] == 6
+        assert pc["saccade_threshold_factor"] == 6.0
+        assert pc["velocity_estimation_method"] == "savitzky_golay"
+        assert pc["velocity_smoothing_window_ms"] == 50
+        assert pc["velocity_polynomial_degree"] == 2
+
+    def test_processing_config_records_fixed_design_decisions(
+        self, dummy_dcn_dir, mock_load_lab_config, mock_pipeline_version
+    ) -> None:
+        dc = _create_dc(dummy_dcn_dir)
+        overview = dc.create_dataset_overview(path=dummy_dcn_dir)
+        pc = overview["processing_config"]
+
+        assert pc["aoi_enlargement"] == "half_line_spacing"
+        assert pc["reading_measures_null_fill"] == 0
+        assert pc["scanpath_drop_unmapped"] is True
+        assert pc["data_loss_missingness_column"] == "pixel"
+        assert pc["per_trial_loss_weighting"] == "equal"
 
 
 class TestDataAvailability:

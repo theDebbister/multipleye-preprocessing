@@ -833,6 +833,22 @@ class MultipleyeDataCollection:
                     "Answer_option_shuffling_bug"
                 ),
             },
+            "processing_config": {
+                "fixation_method": settings.FIXATION_METHOD,
+                "fixation_minimum_duration_ms": settings.FIXATION_MINIMUM_DURATION_MS,
+                "fixation_velocity_threshold": settings.FIXATION_VELOCITY_THRESHOLD,
+                "saccade_method": settings.SACCADE_METHOD,
+                "saccade_minimum_duration": settings.SACCADE_MINIMUM_DURATION,
+                "saccade_threshold_factor": settings.SACCADE_THRESHOLD_FACTOR,
+                "velocity_estimation_method": settings.VELOCITY_ESTIMATION_METHOD,
+                "velocity_smoothing_window_ms": settings.VELOCITY_SMOOTHING_WINDOW_MS,
+                "velocity_polynomial_degree": settings.VELOCITY_POLYNOMIAL_DEGREE,
+                "aoi_enlargement": "half_line_spacing",
+                "reading_measures_null_fill": 0,
+                "scanpath_drop_unmapped": True,
+                "data_loss_missingness_column": "pixel",
+                "per_trial_loss_weighting": "equal",
+            },
             "data_quality": {
                 "attrition_rate": self._compute_attrition_rate(),
                 **self._compute_dcn_averages(),

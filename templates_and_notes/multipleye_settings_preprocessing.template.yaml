@@ -99,6 +99,26 @@ psym_flanker_max_rt: .inf
 # --- EYE TRACKER LABELS (do not change) ---
 tracked_eye: ["L", "R", "RIGHT", "LEFT"]
 
+# --- EVENT DETECTION (do not change) ---
+# Fixation detection method passed to pymovements.
+fixation_method: "ivt"
+# Minimum fixation duration in milliseconds.
+fixation_minimum_duration_ms: 100
+# Velocity threshold for IVT fixation detection in degrees/second.
+fixation_velocity_threshold: 20.0
+# Saccade detection method passed to pymovements.
+saccade_method: "microsaccades"
+# Minimum saccade duration in samples.
+saccade_minimum_duration: 6
+# Noise-adaptive velocity threshold factor for saccade detection.
+saccade_threshold_factor: 6.0
+# Velocity estimation method (e.g. "savitzky_golay").
+velocity_estimation_method: "savitzky_golay"
+# Length of the velocity smoothing/differentiation window in milliseconds.
+velocity_smoothing_window_ms: 50
+# Polynomial degree used in the Savitzky-Golay velocity filter.
+velocity_polynomial_degree: 2
+
 # --- PIPELINE STAGES ---
 # Whether to run the preflight input file check before processing.
 RUN_PREFLIGHT_CHECK: true

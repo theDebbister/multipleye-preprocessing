@@ -25,6 +25,15 @@ def settings_obj():
         ("FORCE_RECONVERT_ASC", False),
         ("SANITY_CHECKS_FOLDER", Path("sanity_checks/")),
         ("METADATA_FOLDER", Path("metadata/")),
+        ("FIXATION_METHOD", "ivt"),
+        ("FIXATION_MINIMUM_DURATION_MS", 100),
+        ("FIXATION_VELOCITY_THRESHOLD", 20.0),
+        ("SACCADE_METHOD", "microsaccades"),
+        ("SACCADE_MINIMUM_DURATION", 6),
+        ("SACCADE_THRESHOLD_FACTOR", 6.0),
+        ("VELOCITY_ESTIMATION_METHOD", "savitzky_golay"),
+        ("VELOCITY_SMOOTHING_WINDOW_MS", 50),
+        ("VELOCITY_POLYNOMIAL_DEGREE", 2),
     ],
 )
 def test_settings_default_values(settings_obj, attr, expected):

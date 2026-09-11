@@ -116,3 +116,13 @@ preprocessed_data/{dcn}/
 `psychometric_overview_{dcn}.csv` (one row per session) and
 `psychometric_overview_{dcn}_merged.csv` (sessions merged per participant when tests are
 disjoint). The merged overview combines PT1 and PT2 data for the same subject.
+
+**The dataset overview records how the data was processed.** `{dcn}_overview.yaml` contains a
+`processing_config` section with the algorithm settings used for the run: event-detection
+parameters (`fixation_method`, `fixation_minimum_duration_ms`, `fixation_velocity_threshold`,
+`saccade_method`, `saccade_minimum_duration`, `saccade_threshold_factor`), velocity-estimation
+parameters (`velocity_estimation_method`, `velocity_smoothing_window_ms`,
+`velocity_polynomial_degree`) and fixed design decisions that are not configurable
+(`aoi_enlargement`, `reading_measures_null_fill`, `scanpath_drop_unmapped`,
+`data_loss_missingness_column`, `per_trial_loss_weighting`). These values are read from the
+resolved configuration, so the overview always reflects what was actually applied.
