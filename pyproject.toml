@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "MultiplEYE-preprocessing"
-version = "2026.09.11"
+version = "2026.09.12"
 description = "Pipeline for Multipleye data preprocessing"
 readme = "README.md"
 requires-python = ">=3.13"
